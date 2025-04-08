@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Recuperar Senha - Catálogo Vortex</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css">
+    <style>
+        body {
+            background-color: #f8f9fa;
+        }
+        .login-container {
+            max-width: 450px;
+            margin: 0 auto;
+            padding: 40px;
+            margin-top: 80px;
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        .login-title {
+            text-align: center;
+            margin-bottom: 10px;
+            color: #0d6efd;
+        }
+        .login-subtitle {
+            text-align: center;
+            margin-bottom: 30px;
+            color: #6c757d;
+            font-size: 0.9rem;
+        }
+        .form-control:focus {
+            border-color: #0d6efd;
+            box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+        }
+        .btn-login {
+            width: 100%;
+            padding: 10px;
+            font-weight: bold;
+            background-color: #0d6efd;
+            border: none;
+        }
+        .btn-login:hover {
+            background-color: #0b5ed7;
+        }
+        .login-links {
+            text-align: center;
+            margin-top: 20px;
+        }
+        .login-links a {
+            color: #0d6efd;
+            text-decoration: none;
+        }
+        .login-links a:hover {
+            text-decoration: underline;
+        }
+        .login-logo {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .login-logo i {
+            font-size: 4rem;
+            color: #0d6efd;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="login-container">
+            <div class="login-logo">
+                <i class="bi bi-key"></i>
+            </div>
+            <h2 class="login-title">Recuperar Senha</h2>
+            <p class="login-subtitle">Informe seu email ou telefone para receber instruções de recuperação de senha</p>
+            
+            <!-- Mensagens Flash -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }}">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+            
+            <form method="POST" action="{{ url_for('esqueci_senha') }}">
+                <div class="mb-3">
+                    <label for="credencial" class="form-label">Email ou Telefone</label>
+                    <input type="text" class="form-control" id="credencial" name="credencial" placeholder="Seu email ou telefone" required>
+                </div>
+                <button type="submit" class="btn btn-primary btn-login">Enviar Link de Recuperação</button>
+            </form>
+            
+            <div class="login-links">
+                <a href="{{ url_for('login') }}">Voltar para Login</a>
+                <div class="mt-3">
+                    <a href="{{ url_for('index') }}" class="text-muted"><i class="bi bi-arrow-left"></i> Voltar para o catálogo</a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html> 

@@ -1,0 +1,45 @@
+# Python bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Logs
+*.log
+*.log.*
+migracao_senhas.log
+
+# Backups
+*.bak
+*.bak.*
+*.old
+*.backup
+
+# Ambiente virtual
+venv/
+env/
+ENV/
+
+# Arquivos de ambiente
+.env
+.env.local
+
+# Cache
+.cache/
+.pytest_cache/
+
+# Configurações do IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Diretório de imagens geradas automaticamente
+static/images/*
+!static/images/no-image.png
+
+# Sistema operacional
+.DS_Store
+Thumbs.db
+
+# Dependencies
+requirements.txt

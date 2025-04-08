@@ -1,0 +1,14 @@
+{
+  "usuarios": [
+    {
+      "id": "1",
+      "nome": "João Pedro Meira",
+      "email": "joao.pedro@vortexdev.tech",
+      "telefone": "(38) 98855-7476",
+      "senha_hash": "$2b$12$Jhc1/ihFJ6TnBg1MUblZx.fEQLGrgfgl.Nl8tAh9fsm2HVjX1Te.a",
+      "reset_token": null,
+      "tipo": "dev",
+      "data_criacao": "04/04/2025 17:42:47"
+    }
+  ]
+}

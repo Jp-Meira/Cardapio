@@ -1,0 +1,1264 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Catálogo de Produtos</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css">
+    <style>
+        .produto-card {
+            margin-bottom: 20px;
+            transition: transform 0.2s;
+        }
+        .produto-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        .produto-imagem {
+            max-width: 100%;
+            height: 200px;
+            object-fit: cover;
+        }
+        .carrinho-badge {
+            position: relative;
+            top: -8px;
+            right: 5px;
+            margin-left: 5px;
+        }
+        .modal-pedido {
+            max-width: 500px;
+        }
+        .produto-carrinho {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+        }
+        .quantidade-input {
+            width: 80px;
+        }
+        /* Ajuste do z-index do Toast */
+        .toast-container {
+            z-index: 1060 !important;
+        }
+        .toast {
+            z-index: 1061 !important;
+        }
+        /* Estilo para campos inválidos */
+        .campo-invalido {
+            border-color: #dc3545;
+        }
+        .mensagem-erro {
+            color: #dc3545;
+            font-size: 0.8rem;
+            margin-top: 0.25rem;
+            display: none;
+        }
+        /* Barra de navegação fixa */
+        .navbar {
+            position: sticky;
+            top: 0;
+            z-index: 1050;
+        }
+        /* Barra de busca e carrinho fixa */
+        .search-cart-bar {
+            position: fixed;
+            top: 83px; /* Alterado para 83px */
+            right: 9%; /* Alterado de 8% para 9% */
+            z-index: 1020;
+            background-color: transparent;
+            padding: 0;
+            border: none;
+            box-shadow: none;
+            width: 35%; /* Ajustado para largura original */
+            max-width: 450px;
+        }
+        
+        /* Espaço para compensar a barra fixa */
+        @media (max-width: 767px) {
+            .search-cart-bar {
+                position: relative;
+                width: 100%;
+                top: auto;
+                right: auto;
+                margin-top: 15px;
+            }
+        }
+        /* Modal de finalização maior */
+        #finalizacaoModal .modal-dialog {
+            max-width: 90%;
+        }
+        /* Área de rolagem para o resumo do pedido */
+        #finalizacaoModal .card-body {
+            max-height: none;
+            overflow-y: visible;
+        }
+        /* Item da tabela de resumo */
+        .resumo-item-nome {
+            word-break: break-word;
+        }
+        .resumo-item-preco {
+            white-space: nowrap;
+        }
+        /* Estilo para preço unitário menor */
+        .preco-unitario {
+            font-size: 0.85rem;
+            color: #6c757d;
+            display: block;
+        }
+        .preco-total {
+            font-weight: bold;
+            font-size: 1.05rem;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-light bg-light mb-4">
+        <div class="container">
+            <a class="navbar-brand" href="{{ url_for('index') }}">
+                <i class="bi bi-box-seam me-2"></i>Catálogo Vortex
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    {% if 'usuario_id' in session %}
+                        <li class="nav-item">
+                            <span class="nav-link text-muted">Olá, {{ session['usuario_nome'] }}</span>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('index') }}">
+                                <i class="bi bi-grid me-1"></i> Catálogo
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('estoque') }}">
+                                <i class="bi bi-box-seam me-1"></i> Estoque
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('lista_pedidos') }}">
+                                <i class="bi bi-list-check me-1"></i> Pedidos
+                            </a>
+                        </li>
+                        {% if session['usuario_tipo'] == 'gerente' or session['usuario_tipo'] == 'dev' %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('listar_usuarios') }}">
+                                <i class="bi bi-people me-1"></i> Usuários
+                            </a>
+                        </li>
+                        {% endif %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('logout') }}">
+                                <i class="bi bi-box-arrow-right me-1"></i> Sair
+                            </a>
+                        </li>
+                    {% else %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('index') }}">
+                                <i class="bi bi-grid me-1"></i> Catálogo
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('login') }}">
+                                <i class="bi bi-box-arrow-in-right me-1"></i> Login
+                            </a>
+                        </li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <!-- Título em uma linha separada -->
+        <div class="row mb-5">
+            <div class="col-md-12">
+                <h1>Catálogo de Produtos</h1>
+            </div>
+        </div>
+        
+        <!-- Barra de busca + carrinho fixa (separada do fluxo normal) -->
+        <div class="search-cart-bar">
+            <div class="input-group">
+                <input type="text" class="form-control" id="busca-produto" placeholder="Buscar produtos..." onkeyup="filtrarProdutos()">
+                <button class="btn position-relative" style="background-color: #fd7e14; color: white;" onclick="abrirCarrinho()">
+                    <i class="bi bi-cart"></i> Carrinho
+                    <span class="badge bg-danger carrinho-badge" id="carrinho-contador-btn">0</span>
+                </button>
+            </div>
+        </div>
+        
+        <div id="produtos-container" class="row">
+            <!-- Produtos serão inseridos aqui via JavaScript -->
+        </div>
+    </div>
+
+    <!-- Modal de Quantidade -->
+    <div class="modal fade" id="modalQuantidade" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Selecionar Quantidade</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Produto</label>
+                        <p id="produto-nome" class="form-control-static"></p>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Preço Unitário</label>
+                        <p id="produto-preco" class="form-control-static"></p>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Estoque Disponível</label>
+                        <p id="produto-estoque" class="form-control-static"></p>
+                    </div>
+                    <div class="mb-3">
+                        <label for="quantidade-produto" class="form-label">Quantidade</label>
+                        <input type="number" class="form-control" id="quantidade-produto" min="1" value="1">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" onclick="confirmarAdicao()">Adicionar ao Carrinho</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal do Carrinho -->
+    <div class="modal fade" id="carrinhoModal" tabindex="-1">
+        <div class="modal-dialog modal-pedido">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Carrinho de Compras</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="carrinho-produtos" class="mb-3">
+                        <div id="lista-produtos">
+                        </div>
+                        <div class="mt-3">
+                            <h6>Total: R$ <span id="total-carrinho">0.00</span></h6>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Continuar Comprando</button>
+                    <button type="button" class="btn btn-primary" onclick="abrirFinalizacao()">Finalizar Compra</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Finalização -->
+    <div class="modal fade" id="finalizacaoModal" tabindex="-1">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Finalizar Pedido</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-5 mb-4">
+                            <div class="card border-light">
+                                <div class="card-header bg-light">
+                                    <h6 class="mb-0">Resumo do Pedido</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div id="resumo-pedido"></div>
+                                    <div class="mt-3 pt-3 border-top">
+                                        <strong>Total: R$ <span id="total-final">0,00</span></strong>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-7">
+                            <form id="pedidoForm" novalidate>
+                                <div class="row mb-4">
+                                    <h6 class="mb-3">Dados Pessoais</h6>
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label">Nome</label>
+                                        <input type="text" class="form-control" id="cliente_nome" placeholder="Nome completo" required>
+                                        <div class="mensagem-erro" id="erro-cliente_nome">Este campo é obrigatório</div>
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label">Telefone</label>
+                                        <input type="tel" class="form-control" id="cliente_telefone" placeholder="(00) 00000-0000" required>
+                                        <div class="mensagem-erro" id="erro-cliente_telefone">Este campo é obrigatório</div>
+                                    </div>
+                                    <div class="col-md-12 mb-3">
+                                        <label class="form-label">Email (opcional)</label>
+                                        <input type="email" class="form-control" id="cliente_email" placeholder="exemplo@email.com">
+                                    </div>
+                                </div>
+                                
+                                <div class="row mb-4">
+                                    <h6 class="mb-3">Endereço de Entrega</h6>
+                                    <div class="col-md-8 mb-3">
+                                        <label class="form-label">Rua</label>
+                                        <input type="text" class="form-control" id="rua" placeholder="Nome da rua" required>
+                                        <div class="mensagem-erro" id="erro-rua">Este campo é obrigatório</div>
+                                    </div>
+                                    <div class="col-md-4 mb-3">
+                                        <label class="form-label">Número</label>
+                                        <input type="text" class="form-control" id="numero" placeholder="Ex: 123A" required>
+                                        <div class="mensagem-erro" id="erro-numero">Este campo é obrigatório</div>
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label">Bairro</label>
+                                        <input type="text" class="form-control" id="bairro" placeholder="Nome do bairro" required>
+                                        <div class="mensagem-erro" id="erro-bairro">Este campo é obrigatório</div>
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label">Complemento (opcional)</label>
+                                        <input type="text" class="form-control" id="complemento" placeholder="Apto, bloco, etc.">
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label">Cidade</label>
+                                        <input type="text" class="form-control" id="cidade" placeholder="Nome da cidade" required>
+                                        <div class="mensagem-erro" id="erro-cidade">Este campo é obrigatório</div>
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label">Estado</label>
+                                        <select class="form-control" id="estado" required>
+                                            <option value="">Selecione um estado</option>
+                                            <option value="AC">Acre</option>
+                                            <option value="AL">Alagoas</option>
+                                            <option value="AP">Amapá</option>
+                                            <option value="AM">Amazonas</option>
+                                            <option value="BA">Bahia</option>
+                                            <option value="CE">Ceará</option>
+                                            <option value="DF">Distrito Federal</option>
+                                            <option value="ES">Espírito Santo</option>
+                                            <option value="GO">Goiás</option>
+                                            <option value="MA">Maranhão</option>
+                                            <option value="MT">Mato Grosso</option>
+                                            <option value="MS">Mato Grosso do Sul</option>
+                                            <option value="MG">Minas Gerais</option>
+                                            <option value="PA">Pará</option>
+                                            <option value="PB">Paraíba</option>
+                                            <option value="PR">Paraná</option>
+                                            <option value="PE">Pernambuco</option>
+                                            <option value="PI">Piauí</option>
+                                            <option value="RJ">Rio de Janeiro</option>
+                                            <option value="RN">Rio Grande do Norte</option>
+                                            <option value="RS">Rio Grande do Sul</option>
+                                            <option value="RO">Rondônia</option>
+                                            <option value="RR">Roraima</option>
+                                            <option value="SC">Santa Catarina</option>
+                                            <option value="SP">São Paulo</option>
+                                            <option value="SE">Sergipe</option>
+                                            <option value="TO">Tocantins</option>
+                                        </select>
+                                        <div class="mensagem-erro" id="erro-estado">Este campo é obrigatório</div>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="voltarCarrinho()">Voltar</button>
+                    <button type="button" class="btn btn-primary" id="btn-finalizar" onclick="finalizarPedido()">Finalizar Pedido</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast de Notificação -->
+    <div class="toast-container position-fixed bottom-0 end-0 p-3">
+        <div id="toast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="toast-header">
+                <i class="bi bi-check-circle-fill text-success me-2"></i>
+                <strong class="me-auto">Sucesso</strong>
+                <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+            <div class="toast-body">
+                Pedido realizado com sucesso!
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let produtos = [];
+        let carrinho = [];
+        let produtoSelecionado = null;
+        
+        // Declarar as variáveis como let em vez de const para permitir reatribuição
+        let modalQuantidade = null;
+        let modalCarrinho = null;
+        let modalFinalizacao = null;
+        
+        let listaProdutos = null;
+        let resumoPedido = null;
+        let contadorCarrinho = null;
+        let totalCarrinho = null;
+        let totalFinal = null;
+        let toast = null;
+
+        // Função para normalizar texto (remover acentos e caracteres especiais)
+        function normalizarTexto(texto) {
+            return texto.toLowerCase()
+                    .normalize('NFD')
+                    .replace(/[\u0300-\u036f]/g, '')
+                    .replace(/[^\w\s]/gi, '');
+        }
+
+        // Carregar produtos ao iniciar a página
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('DOM carregado, iniciando aplicação...');
+            
+            try {
+                // Limpar o carrinho para evitar itens de testes anteriores
+                localStorage.removeItem('carrinho');
+                carrinho = [];
+                console.log('Carrinho limpo no carregamento inicial da página');
+                
+                // Inicializar componentes Bootstrap
+                modalQuantidade = new bootstrap.Modal(document.getElementById('modalQuantidade'));
+                modalCarrinho = new bootstrap.Modal(document.getElementById('carrinhoModal'));
+                modalFinalizacao = new bootstrap.Modal(document.getElementById('finalizacaoModal'));
+                
+                listaProdutos = document.getElementById('lista-produtos');
+                resumoPedido = document.getElementById('resumo-pedido');
+                contadorCarrinho = document.getElementById('carrinho-contador-btn');
+                totalCarrinho = document.getElementById('total-carrinho');
+                totalFinal = document.getElementById('total-final');
+                
+                // Inicializar toast de notificações
+                const toastElement = document.getElementById('toast');
+                if (toastElement) {
+                    toast = new bootstrap.Toast(toastElement);
+                }
+                
+                console.log('Componentes Bootstrap inicializados com sucesso');
+            } catch (error) {
+                console.error('Erro ao inicializar componentes:', error);
+            }
+            
+            // Tentar carregar o carrinho salvo no localStorage
+            try {
+                const carrinhoSalvo = localStorage.getItem('carrinho');
+                if (carrinhoSalvo) {
+                    carrinho = JSON.parse(carrinhoSalvo);
+                    console.log(`Carrinho carregado do localStorage: ${carrinho.length} item(s)`);
+                    // Verificar se o carrinho é válido
+                    if (!Array.isArray(carrinho)) {
+                        console.error('Carrinho salvo inválido, resetando...');
+                        carrinho = [];
+                        localStorage.removeItem('carrinho');
+                    }
+                } else {
+                    carrinho = [];
+                    console.log('Carrinho inicializado como array vazio (nada no localStorage)');
+                }
+            } catch (error) {
+                console.error('Erro ao carregar carrinho do localStorage:', error);
+                carrinho = [];
+                localStorage.removeItem('carrinho');
+            }
+            
+            // Carregar produtos do servidor
+            console.log('Chamando função carregarProdutos()...');
+            setTimeout(() => {
+                carregarProdutos();
+            }, 100);
+            
+            // Inicializar carrinho
+            atualizarContadorCarrinho();
+
+            // Configurar formatação automática do telefone
+            const telefoneInput = document.getElementById('cliente_telefone');
+            if (telefoneInput) {
+                telefoneInput.addEventListener('input', function(e) {
+                    // Remove tudo que não é dígito
+                    let valor = this.value.replace(/\D/g, '');
+                    
+                    // Limita a 11 dígitos (DDD + número)
+                    if (valor.length > 11) {
+                        valor = valor.substring(0, 11);
+                    }
+                    
+                    // Formatar como (XX) XXXXX-XXXX ou (XX) XXXX-XXXX
+                    if (valor.length <= 2) {
+                        // Até 2 dígitos, apenas coloca os parênteses
+                        this.value = valor.length > 0 ? `(${valor}` : valor;
+                    } else if (valor.length <= 6) {
+                        // De 3 a 6 dígitos
+                        this.value = `(${valor.substring(0, 2)}) ${valor.substring(2)}`;
+                    } else if (valor.length <= 10) {
+                        // Telefone fixo: (XX) XXXX-XXXX
+                        this.value = `(${valor.substring(0, 2)}) ${valor.substring(2, 6)}-${valor.substring(6)}`;
+                    } else {
+                        // Celular: (XX) XXXXX-XXXX
+                        this.value = `(${valor.substring(0, 2)}) ${valor.substring(2, 7)}-${valor.substring(7)}`;
+                    }
+                });
+            }
+
+            // Configurar formatação do nome (capitalizar primeiras letras)
+            const nomeInput = document.getElementById('cliente_nome');
+            if (nomeInput) {
+                nomeInput.addEventListener('blur', function() {
+                    const valor = this.value.trim();
+                    if (valor) {
+                        // Verificar se tem pelo menos 2 palavras
+                        const palavras = valor.split(/\s+/).filter(p => p.length > 0);
+                        
+                        if (palavras.length >= 2) {
+                            // Formatar nome com primeira letra maiúscula
+                            const nomeFormatado = palavras.map(palavra => 
+                                palavra.charAt(0).toUpperCase() + palavra.slice(1).toLowerCase()
+                            ).join(' ');
+                            this.value = nomeFormatado;
+                            
+                            // Remover mensagem de erro se estiver presente
+                            const erro = document.getElementById('erro-cliente_nome');
+                            if (erro) {
+                                erro.style.display = 'none';
+                            }
+                            this.classList.remove('campo-invalido');
+                        } else if (palavras.length > 0) {
+                            // Exibir erro se tiver apenas uma palavra
+                            const erro = document.getElementById('erro-cliente_nome');
+                            if (erro) {
+                                erro.innerText = 'Informe nome e sobrenome';
+                                erro.style.display = 'block';
+                            }
+                            this.classList.add('campo-invalido');
+                        }
+                    }
+                });
+            }
+
+            // Configurar validação de email
+            const emailInput = document.getElementById('cliente_email');
+            if (emailInput) {
+                emailInput.addEventListener('blur', function() {
+                    const valor = this.value.trim();
+                    if (valor) {
+                        // Validar formato de email
+                        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                        if (!emailRegex.test(valor)) {
+                            this.classList.add('campo-invalido');
+                            // Criar ou atualizar elemento de erro
+                            let erro = document.getElementById('erro-cliente_email');
+                            if (!erro) {
+                                erro = document.createElement('div');
+                                erro.id = 'erro-cliente_email';
+                                erro.className = 'mensagem-erro';
+                                this.parentNode.appendChild(erro);
+                            }
+                            erro.innerText = 'Formato de e-mail inválido (exemplo@dominio.com)';
+                            erro.style.display = 'block';
+                } else {
+                            this.classList.remove('campo-invalido');
+                            const erro = document.getElementById('erro-cliente_email');
+                            if (erro) {
+                                erro.style.display = 'none';
+                            }
+                        }
+                    } else {
+                        // Email é opcional, então remover qualquer erro
+                        this.classList.remove('campo-invalido');
+                        const erro = document.getElementById('erro-cliente_email');
+                        if (erro) {
+                            erro.style.display = 'none';
+                        }
+                }
+            });
+            }
+            
+            // Configurar validação do número do endereço
+            const numeroInput = document.getElementById('numero');
+            if (numeroInput) {
+                numeroInput.addEventListener('blur', function() {
+                    const valor = this.value.trim();
+                    if (valor) {
+                        // Verificar se contém ao menos um dígito
+                        if (!/\d/.test(valor)) {
+                            this.classList.add('campo-invalido');
+                            const erro = document.getElementById('erro-numero');
+                            if (erro) {
+                                erro.innerText = 'O número deve conter pelo menos um dígito';
+                                erro.style.display = 'block';
+                            }
+                        } else {
+                            this.classList.remove('campo-invalido');
+                            const erro = document.getElementById('erro-numero');
+                            if (erro) {
+                                erro.style.display = 'none';
+                            }
+                        }
+                    }
+                });
+            }
+        });
+
+        function filtrarProdutos() {
+            const termo = document.getElementById('busca-produto').value;
+            if (!termo.trim()) {
+                // Se não tiver termo de busca, mostrar todos os produtos
+                renderizarProdutos(produtos);
+                return;
+            }
+            
+            const termoNormalizado = normalizarTexto(termo);
+            
+            // Filtrar produtos que contêm o termo de busca
+            const produtosFiltrados = produtos.filter(produto => 
+                normalizarTexto(produto.nome).includes(termoNormalizado) || 
+                normalizarTexto(produto.descricao).includes(termoNormalizado)
+            );
+            
+            renderizarProdutos(produtosFiltrados);
+        }
+
+        // Função para carregar produtos da API
+        async function carregarProdutos() {
+            try {
+                console.log('Iniciando carregamento de produtos...');
+                
+                // Mostrar indicador de carregamento
+                const container = document.getElementById('produtos-container');
+                container.innerHTML = `
+                    <div class="col-12 text-center py-5">
+                        <div class="spinner-border text-primary mb-3" role="status">
+                            <span class="visually-hidden">Carregando...</span>
+                        </div>
+                        <p class="text-muted">Carregando produtos...</p>
+                    </div>
+                `;
+                
+                const response = await fetch('/api/produtos');
+                console.log(`Resposta recebida: ${response.status} ${response.statusText}`);
+                
+                if (!response.ok) {
+                    throw new Error(`Erro ao carregar produtos: ${response.status}`);
+                }
+                
+                const dados = await response.json();
+                console.log(`Dados recebidos:`, dados);
+                
+                if (!Array.isArray(dados)) {
+                    console.error('Erro: Produtos não é um array', dados);
+                    throw new Error('Resposta inválida: produtos não é um array');
+                }
+                
+                // Guardar produtos em variável global
+                produtos = dados;
+                console.log(`${produtos.length} produtos armazenados globalmente`);
+                
+                // Renderizar produtos na tela
+                renderizarProdutos(produtos);
+                
+            } catch (error) {
+                console.error('Erro ao carregar produtos:', error);
+                
+                const container = document.getElementById('produtos-container');
+                container.innerHTML = `
+                    <div class="col-12 text-center py-5">
+                        <i class="bi bi-exclamation-triangle display-1 text-danger mb-3"></i>
+                        <h3>Erro ao carregar produtos</h3>
+                        <p class="text-muted">${error.message || 'Ocorreu um erro ao tentar carregar os produtos.'}</p>
+                        <button class="btn btn-primary mt-3" onclick="carregarProdutos()">
+                            <i class="bi bi-arrow-clockwise"></i> Tentar Novamente
+                        </button>
+                    </div>
+                `;
+            }
+        }
+
+        // Função para renderizar produtos na interface
+        function renderizarProdutos(listaProdutos) {
+            console.log(`Renderizando ${listaProdutos ? listaProdutos.length : 0} produtos...`);
+            
+            const container = document.getElementById('produtos-container');
+            if (!container) {
+                console.error('Elemento container de produtos não encontrado');
+                return;
+            }
+            
+            // Limpar o container
+            container.innerHTML = '';
+            
+            // Verificar se há produtos para exibir
+            if (!listaProdutos || !Array.isArray(listaProdutos) || listaProdutos.length === 0) {
+                container.innerHTML = `
+                    <div class="col-12 text-center py-5">
+                        <i class="bi bi-inbox display-1 text-muted mb-3"></i>
+                        <h3>Nenhum produto disponível</h3>
+                        <p class="text-muted">Quando houver produtos, eles aparecerão aqui.</p>
+                    </div>
+                `;
+                console.log('Nenhum produto para exibir');
+                return;
+            }
+            
+            // Renderizar cada produto
+            listaProdutos.forEach((produto, index) => {
+                try {
+                    console.log(`Renderizando produto ${index+1}/${listaProdutos.length}: ${produto.id} - ${produto.nome}`);
+                    
+                    // Verificar se há estoque
+                    const temEstoque = produto.quantidade_estoque > 0;
+                    
+                    // Criar coluna para o produto
+                    const coluna = document.createElement('div');
+                    coluna.className = 'col-md-4 col-sm-6 col-12 produto-card';
+                    
+                    // Formatar preço com vírgula
+                    const precoFormatado = produto.preco.toFixed(2).replace('.', ',');
+                    
+                    // HTML interno da coluna
+                    coluna.innerHTML = `
+                        <div class="card h-100">
+                            <img src="${produto.imagem_url || '/static/images/no-image.png'}" class="card-img-top produto-imagem" alt="${produto.nome}">
+                            <div class="card-body">
+                                <h5 class="card-title">${produto.nome}</h5>
+                                <p class="card-text text-truncate mb-2">${produto.descricao}</p>
+                                <p class="card-text">
+                                    <span class="fw-bold text-success">R$ ${precoFormatado}</span>
+                                </p>
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <span class="badge bg-${temEstoque ? 'success' : 'danger'}">
+                                            ${temEstoque ? 'Em estoque' : 'Indisponível'}
+                                        </span>
+                                    </div>
+                                    <button class="btn btn-primary btn-sm" 
+                                        onclick="abrirModalQuantidade('${produto.id}', '${produto.nome.replace(/'/g, "\\'")}', ${produto.preco}, ${produto.quantidade_estoque})"
+                                        ${!temEstoque ? 'disabled' : ''}>
+                                        <i class="bi bi-cart-plus"></i> Adicionar
+                                </button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    
+                    container.appendChild(coluna);
+                } catch (error) {
+                    console.error(`Erro ao renderizar produto ${index}:`, error);
+                }
+            });
+            
+            console.log('Produtos renderizados com sucesso!');
+        }
+
+        function adicionarAoCarrinho(produto, quantidade) {
+            // Verificar se já existe o produto no carrinho
+            const itemExistente = carrinho.find(item => item.id === produto.id);
+            
+            if (itemExistente) {
+                // Se existe, atualiza a quantidade
+                itemExistente.quantidade += quantidade;
+            } else {
+                // Se não existe, adiciona novo item
+                carrinho.push({
+                    id: produto.id,
+                    nome: produto.nome,
+                    preco: produto.preco,
+                    quantidade: quantidade
+                });
+            }
+            
+            // Salvar carrinho no localStorage
+            try {
+                localStorage.setItem('carrinho', JSON.stringify(carrinho));
+            } catch (error) {
+                console.error('Erro ao salvar carrinho no localStorage:', error);
+            }
+            
+            atualizarCarrinho();
+        }
+
+        function removerDoCarrinho(index) {
+            carrinho.splice(index, 1);
+            
+            // Atualizar localStorage após remover item
+            try {
+                localStorage.setItem('carrinho', JSON.stringify(carrinho));
+            } catch (error) {
+                console.error('Erro ao salvar carrinho no localStorage após remover item:', error);
+            }
+            
+            atualizarCarrinho();
+        }
+
+        function calcularTotal() {
+            return carrinho.reduce((total, item) => total + (item.preco * item.quantidade), 0);
+        }
+
+        function atualizarCarrinho() {
+            console.log('Atualizando carrinho...');
+            
+            // Atualizar contador
+            atualizarContadorCarrinho();
+            
+            // Se o modal não estiver inicializado ou não tiver o elemento de listagem, ignorar
+            if (!listaProdutos) {
+                console.error('Elemento lista-produtos não encontrado');
+                return;
+            }
+            
+            // Limpar a lista
+            listaProdutos.innerHTML = '';
+            
+            // Caso o carrinho esteja vazio
+            if (carrinho.length === 0) {
+                listaProdutos.innerHTML = '<div class="text-center text-muted py-4"><i class="bi bi-cart-x fs-1 mb-3"></i><p>Seu carrinho está vazio</p></div>';
+                totalCarrinho.textContent = '0,00';
+                return;
+            }
+            
+            // Adicionar cada item do carrinho
+            carrinho.forEach((item, index) => {
+                const div = document.createElement('div');
+                div.className = 'produto-carrinho';
+                div.innerHTML = `
+                    <div>
+                        <span class="fw-bold">${item.nome}</span><br>
+                        <small class="text-muted">R$ ${item.preco.toFixed(2).replace('.', ',')} cada</small>
+                    </div>
+                    <div>
+                        <button class="btn btn-sm btn-outline-primary me-2" onclick="alterarQuantidade(${index}, -1)">-</button>
+                        <span>${item.quantidade}</span>
+                        <button class="btn btn-sm btn-outline-primary ms-2" onclick="alterarQuantidade(${index}, 1)">+</button>
+                        <button class="btn btn-sm btn-danger ms-2" onclick="removerDoCarrinho(${index})">Remover</button>
+                    </div>
+                `;
+                listaProdutos.appendChild(div);
+            });
+            
+            // Atualizar total
+            const total = calcularTotal();
+            totalCarrinho.textContent = total.toFixed(2).replace('.', ',');
+            totalFinal.textContent = total.toFixed(2).replace('.', ',');
+        }
+
+        function alterarQuantidade(index, delta) {
+            const item = carrinho[index];
+            const novaQuantidade = item.quantidade + delta;
+            
+            if (novaQuantidade <= 0) {
+                removerDoCarrinho(index);
+                return;
+            }
+            
+            // Verificar estoque disponível
+            if (delta > 0) {
+                const produtoEstoque = produtos.find(p => p.id === item.id);
+                if (!produtoEstoque || produtoEstoque.quantidade_estoque < novaQuantidade) {
+                    mostrarNotificacao('erro', `Estoque insuficiente. Disponível: ${produtoEstoque ? produtoEstoque.quantidade_estoque : 0}`);
+                    return;
+                }
+            }
+            
+            item.quantidade = novaQuantidade;
+            
+            // Atualizar localStorage após alterar quantidade
+            try {
+                localStorage.setItem('carrinho', JSON.stringify(carrinho));
+            } catch (error) {
+                console.error('Erro ao salvar carrinho no localStorage após alterar quantidade:', error);
+            }
+            
+            atualizarCarrinho();
+        }
+
+        function atualizarResumoPedido() {
+            resumoPedido.innerHTML = '';
+            
+            if (carrinho.length === 0) {
+                resumoPedido.innerHTML = '<div class="text-center text-muted py-4"><i class="bi bi-cart-x fs-1 mb-3"></i><p>Carrinho vazio</p></div>';
+                return;
+            }
+            
+            // Tabela para exibir os itens do pedido
+            const table = document.createElement('table');
+            table.className = 'table table-sm table-striped mb-0';
+            
+            // Cabeçalho da tabela
+            const thead = document.createElement('thead');
+            thead.innerHTML = `
+                <tr class="table-light">
+                    <th style="width: 50%">Item</th>
+                    <th class="text-center" style="width: 15%">Qtd</th>
+                    <th class="text-end" style="width: 35%">Preço</th>
+                </tr>
+            `;
+            table.appendChild(thead);
+            
+            // Corpo da tabela
+            const tbody = document.createElement('tbody');
+            carrinho.forEach(item => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td class="resumo-item-nome">
+                        <span class="fw-bold">${item.nome}</span>
+                    </td>
+                    <td class="text-center">${item.quantidade}</td>
+                    <td class="text-end resumo-item-preco">
+                        <span class="preco-unitario">R$ ${item.preco.toFixed(2).replace('.', ',')} x ${item.quantidade}</span>
+                        <span class="preco-total">R$ ${(item.preco * item.quantidade).toFixed(2).replace('.', ',')}</span>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+            table.appendChild(tbody);
+            
+            resumoPedido.appendChild(table);
+        }
+
+        function abrirModalQuantidade(id, nome, preco, estoque) {
+            console.log(`Abrindo modal para adicionar produto: ${id} - ${nome}`);
+            produtoSelecionado = { id, nome, preco, estoque };
+            document.getElementById('produto-nome').textContent = nome;
+            document.getElementById('produto-preco').textContent = `R$ ${preco.toFixed(2).replace('.', ',')}`;
+            document.getElementById('produto-estoque').textContent = estoque;
+            document.getElementById('quantidade-produto').value = 1;
+            modalQuantidade.show();
+        }
+
+        function mostrarNotificacao(tipo, mensagem) {
+            const toastElement = document.getElementById('toast');
+            const toastHeader = toastElement.querySelector('.toast-header');
+            const toastBody = toastElement.querySelector('.toast-body');
+            
+            if (tipo === 'erro') {
+                toastHeader.querySelector('i').className = 'bi bi-exclamation-circle-fill text-danger me-2';
+                toastHeader.querySelector('strong').textContent = 'Erro';
+            } else {
+                toastHeader.querySelector('i').className = 'bi bi-check-circle-fill text-success me-2';
+                toastHeader.querySelector('strong').textContent = 'Sucesso';
+            }
+            
+            toastBody.textContent = mensagem;
+            toast.show();
+            console.log(`Notificação exibida (${tipo}): ${mensagem}`);
+        }
+
+        async function finalizarPedido() {
+            if (carrinho.length === 0) {
+                mostrarNotificacao('erro', 'O carrinho está vazio');
+                return;
+            }
+
+            // Verificar estoque novamente antes de finalizar
+            let estoqueInsuficiente = false;
+            let mensagemErro = 'Estoque insuficiente para os seguintes produtos:\n';
+            
+            for (const item of carrinho) {
+                const produtoEstoque = produtos.find(p => p.id === item.id);
+                if (!produtoEstoque || produtoEstoque.quantidade_estoque < item.quantidade) {
+                    estoqueInsuficiente = true;
+                    mensagemErro += `- ${item.nome}: Pedido: ${item.quantidade}, Disponível: ${produtoEstoque ? produtoEstoque.quantidade_estoque : 0}\n`;
+                }
+            }
+            
+            if (estoqueInsuficiente) {
+                mostrarNotificacao('erro', mensagemErro);
+                return;
+            }
+
+            // Validar todos os campos simultaneamente
+            const camposObrigatorios = [
+                'cliente_nome', 'cliente_telefone', 'rua', 'numero', 'bairro', 'cidade', 'estado'
+            ];
+            
+            // Limpar estados de validação anteriores
+            camposObrigatorios.forEach(campo => {
+                const elemento = document.getElementById(campo);
+                const mensagemErro = document.getElementById(`erro-${campo}`);
+                
+                elemento.classList.remove('campo-invalido');
+                if (mensagemErro) mensagemErro.style.display = 'none';
+            });
+            
+            // Verificar campos vazios e validar formato
+            let temErro = false;
+            
+            // Validação do nome (deve ter pelo menos 2 palavras)
+            const nomeElemento = document.getElementById('cliente_nome');
+            const nomeValor = nomeElemento.value.trim();
+            const nomeErro = document.getElementById('erro-cliente_nome');
+            
+            if (!nomeValor) {
+                nomeElemento.classList.add('campo-invalido');
+                nomeErro.innerText = 'Este campo é obrigatório';
+                nomeErro.style.display = 'block';
+                temErro = true;
+            } else {
+                // Verificar se tem pelo menos 2 palavras
+                const palavras = nomeValor.split(/\s+/).filter(p => p.length > 0);
+                if (palavras.length < 2) {
+                    nomeElemento.classList.add('campo-invalido');
+                    nomeErro.innerText = 'Informe nome e sobrenome';
+                    nomeErro.style.display = 'block';
+                    temErro = true;
+                } else {
+                    // Formatar nome com primeira letra maiúscula
+                    const nomeFormatado = palavras.map(palavra => 
+                        palavra.charAt(0).toUpperCase() + palavra.slice(1).toLowerCase()
+                    ).join(' ');
+                    nomeElemento.value = nomeFormatado;
+                }
+            }
+            
+            // Validação do telefone
+            const telefoneElemento = document.getElementById('cliente_telefone');
+            const telefoneValor = telefoneElemento.value.trim();
+            const telefoneErro = document.getElementById('erro-cliente_telefone');
+            
+            if (!telefoneValor) {
+                telefoneElemento.classList.add('campo-invalido');
+                telefoneErro.innerText = 'Este campo é obrigatório';
+                telefoneErro.style.display = 'block';
+                temErro = true;
+            } else {
+                // Verificar se o telefone tem pelo menos 10 dígitos (desconsiderando formatação)
+                const digitos = telefoneValor.replace(/\D/g, '');
+                if (digitos.length < 10 || digitos.length > 11) {
+                    telefoneElemento.classList.add('campo-invalido');
+                    telefoneErro.innerText = 'Telefone deve ter entre 10 e 11 dígitos';
+                    telefoneErro.style.display = 'block';
+                    temErro = true;
+                } else {
+                    // Formatar automaticamente o número se estiver apenas em dígitos
+                    if (!/\(|\)|-/.test(telefoneValor)) {
+                        // Aplicar formatação
+                        if (digitos.length === 11) {
+                            telefoneElemento.value = `(${digitos.substring(0, 2)}) ${digitos.substring(2, 7)}-${digitos.substring(7)}`;
+                        } else {
+                            telefoneElemento.value = `(${digitos.substring(0, 2)}) ${digitos.substring(2, 6)}-${digitos.substring(6)}`;
+                        }
+                    }
+                }
+            }
+            
+            // Validação de email (se fornecido)
+            const emailElemento = document.getElementById('cliente_email');
+            const emailValor = emailElemento.value.trim();
+            
+            if (emailValor) {
+                // Regex para validar formato de email com @dominio.algo
+                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                if (!emailRegex.test(emailValor)) {
+                    emailElemento.classList.add('campo-invalido');
+                    // Criar elemento de erro se não existir
+                    let errorEmail = document.getElementById('erro-cliente_email');
+                    if (!errorEmail) {
+                        errorEmail = document.createElement('div');
+                        errorEmail.id = 'erro-cliente_email';
+                        errorEmail.className = 'mensagem-erro';
+                        emailElemento.parentNode.appendChild(errorEmail);
+                    }
+                    errorEmail.innerText = 'Formato de e-mail inválido (exemplo@dominio.com)';
+                    errorEmail.style.display = 'block';
+                    temErro = true;
+                }
+            }
+            
+            // Validar formato do número do endereço
+            const numeroElemento = document.getElementById('numero');
+            const numeroValor = numeroElemento.value.trim();
+            const numeroErro = document.getElementById('erro-numero');
+            
+            if (!numeroValor) {
+                numeroElemento.classList.add('campo-invalido');
+                numeroErro.innerText = 'Este campo é obrigatório';
+                numeroErro.style.display = 'block';
+                temErro = true;
+            } else {
+                // Validar que o número do endereço contenha pelo menos um dígito
+                if (!/\d/.test(numeroValor)) {
+                    numeroElemento.classList.add('campo-invalido');
+                    numeroErro.innerText = 'O número deve conter pelo menos um dígito';
+                    numeroErro.style.display = 'block';
+                    temErro = true;
+                }
+            }
+            
+            // Validar os outros campos obrigatórios
+            ['cliente_nome', 'rua', 'bairro', 'cidade', 'estado'].forEach(campo => {
+                const elemento = document.getElementById(campo);
+                const valor = elemento.value.trim();
+                const mensagemErro = document.getElementById(`erro-${campo}`);
+                
+                if (!valor && mensagemErro) {
+                    elemento.classList.add('campo-invalido');
+                    mensagemErro.style.display = 'block';
+                    temErro = true;
+                }
+            });
+            
+            if (temErro) {
+                return;
+            }
+
+            // Continuar com o processo de finalização
+            const nome = document.getElementById('cliente_nome').value.trim();
+            const telefone = document.getElementById('cliente_telefone').value.trim();
+            const email = document.getElementById('cliente_email').value.trim();
+            const rua = document.getElementById('rua').value.trim();
+            const numero = document.getElementById('numero').value.trim();
+            const bairro = document.getElementById('bairro').value.trim();
+            const cidade = document.getElementById('cidade').value.trim();
+            const estado = document.getElementById('estado').value;
+            const complemento = document.getElementById('complemento').value.trim();
+            
+            const endereco = `${rua}, ${numero}${complemento ? ` - ${complemento}` : ''}\n${bairro}\n${cidade} - ${estado}`;
+
+            try {
+                const btnFinalizar = document.getElementById('btn-finalizar');
+                btnFinalizar.disabled = true;
+                btnFinalizar.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Finalizando...';
+
+                // Criar objeto de dados do pedido
+                const dadosPedido = {
+                        produtos: carrinho.map(item => ({
+                            id: item.id,
+                            quantidade: item.quantidade
+                        })),
+                        cliente_nome: nome,
+                        cliente_telefone: telefone,
+                        cliente_endereco: endereco
+                };
+                
+                // Adicionar email apenas se fornecido
+                if (email) {
+                    dadosPedido.cliente_email = email;
+                }
+
+                const response = await fetch('/api/pedidos', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(dadosPedido)
+                });
+
+                if (!response.ok) {
+                    const erro = await response.json();
+                    throw new Error(erro.erro || 'Erro ao finalizar pedido');
+                }
+
+                // Receber os dados do pedido criado
+                const pedidoCriado = await response.json();
+                console.log('Pedido criado com sucesso:', pedidoCriado);
+
+                // Limpar carrinho
+                carrinho = [];
+                localStorage.removeItem('carrinho');
+                
+                // Limpar todos os elementos do carrinho
+                if (listaProdutos) {
+                    listaProdutos.innerHTML = '';
+                }
+                
+                // Atualizar contador e totais
+                atualizarContadorCarrinho();
+                if (totalCarrinho) totalCarrinho.textContent = '0,00';
+                if (totalFinal) totalFinal.textContent = '0,00';
+                
+                // Fechar modais
+                modalCarrinho.hide();
+                modalFinalizacao.hide();
+
+                // Mostrar notificação de sucesso
+                mostrarNotificacao('sucesso', 'Pedido realizado com sucesso!');
+                
+                // Limpar formulário de finalização
+                camposObrigatorios.forEach(campo => {
+                    const elemento = document.getElementById(campo);
+                    if (elemento) elemento.value = '';
+                });
+                document.getElementById('complemento').value = '';
+                document.getElementById('cliente_email').value = '';
+                
+                // Recarregar produtos para atualizar estoque
+                await carregarProdutos();
+
+            } catch (error) {
+                console.error('Erro ao finalizar pedido:', error);
+                mostrarNotificacao('erro', error.message);
+            } finally {
+                // Reabilitar botão
+                const btnFinalizar = document.getElementById('btn-finalizar');
+                btnFinalizar.disabled = false;
+                btnFinalizar.innerHTML = 'Finalizar Pedido';
+            }
+        }
+
+        function confirmarAdicao() {
+            if (!produtoSelecionado) {
+                console.error('Nenhum produto selecionado');
+                return;
+            }
+            
+            const quantidade = parseInt(document.getElementById('quantidade-produto').value);
+            if (isNaN(quantidade) || quantidade <= 0) {
+                mostrarNotificacao('erro', 'Por favor, informe uma quantidade válida.');
+                return;
+            }
+            
+            if (quantidade > produtoSelecionado.estoque) {
+                mostrarNotificacao('erro', `Estoque insuficiente. Disponível: ${produtoSelecionado.estoque}`);
+                return;
+            }
+            
+            adicionarAoCarrinho(produtoSelecionado, quantidade);
+            modalQuantidade.hide();
+            mostrarNotificacao('sucesso', `${quantidade} unidade(s) de ${produtoSelecionado.nome} adicionada(s) ao carrinho.`);
+        }
+
+        function abrirCarrinho() {
+            if (carrinho.length === 0) {
+                mostrarNotificacao('erro', 'Seu carrinho está vazio!');
+                return;
+            }
+            modalCarrinho.show();
+        }
+
+        function abrirFinalizacao() {
+            if (carrinho.length === 0) {
+                mostrarNotificacao('erro', 'O carrinho está vazio');
+                return;
+            }
+            
+            atualizarResumoPedido();
+            modalCarrinho.hide();
+            modalFinalizacao.show();
+        }
+
+        function voltarCarrinho() {
+            modalFinalizacao.hide();
+            modalCarrinho.show();
+        }
+
+        function atualizarContadorCarrinho() {
+            // Atualizar contador com número de itens no carrinho
+            const contadorElement = document.getElementById('carrinho-contador-btn');
+            
+            if (!carrinho || !Array.isArray(carrinho)) {
+                carrinho = [];
+            }
+            
+            if (contadorElement) {
+                contadorElement.textContent = carrinho.length;
+            }
+            
+            console.log(`Contador do carrinho atualizado: ${carrinho.length} item(s)`);
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerenciamento de Estoque</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css">
+    <style>
+        .produto-card {
+            transition: transform 0.2s;
+            border-left: 4px solid #0d6efd;
+        }
+        .produto-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        .toast-container {
+            z-index: 1060 !important;
+        }
+        .toast {
+            z-index: 1061 !important;
+        }
+        .table-responsive {
+            max-height: 70vh;
+        }
+        .actions-column {
+            width: 200px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Barra de Navegação -->
+    <nav class="navbar navbar-expand-lg navbar-light bg-light mb-4">
+        <div class="container">
+            <a class="navbar-brand" href="{{ url_for('index') }}">
+                <i class="bi bi-box-seam me-2"></i>Catálogo Vortex
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    {% if 'usuario_id' in session %}
+                        <li class="nav-item">
+                            <span class="nav-link text-muted">Olá, {{ session['usuario_nome'] }}</span>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('index') }}">
+                                <i class="bi bi-grid me-1"></i> Catálogo
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('estoque') }}">
+                                <i class="bi bi-box-seam me-1"></i> Estoque
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('lista_pedidos') }}">
+                                <i class="bi bi-list-check me-1"></i> Pedidos
+                            </a>
+                        </li>
+                        {% if session['usuario_tipo'] == 'gerente' %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('listar_usuarios') }}">
+                                <i class="bi bi-people me-1"></i> Usuários
+                            </a>
+                        </li>
+                        {% endif %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('logout') }}">
+                                <i class="bi bi-box-arrow-right me-1"></i> Sair
+                            </a>
+                        </li>
+                    {% else %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('index') }}">
+                                <i class="bi bi-grid me-1"></i> Catálogo
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('login') }}">
+                                <i class="bi bi-box-arrow-in-right me-1"></i> Login
+                            </a>
+                        </li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <div class="row mb-4">
+            <div class="col">
+                <h1>Gerenciamento de Estoque</h1>
+                <p class="text-muted">Adicione, edite e gerencie os produtos no estoque.</p>
+            </div>
+            <div class="col text-end">
+                <button class="btn" style="background-color: #20c997; color: white;" onclick="novoProduto()">
+                    <i class="bi bi-plus-circle"></i> Novo Produto
+                </button>
+            </div>
+        </div>
+        
+        <!-- Tabela de produtos -->
+        <div class="card mb-4">
+            <div class="card-header bg-light">
+                <div class="row align-items-center">
+                    <div class="col">
+                        <h5 class="mb-0"><i class="bi bi-box-seam me-2"></i>Lista de Produtos</h5>
+                    </div>
+                    <div class="col-md-4">
+                        <input type="text" class="form-control" id="busca-produto" placeholder="Buscar produto..." onkeyup="filtrarProdutos()">
+                    </div>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th scope="col">ID</th>
+                                <th scope="col">Nome</th>
+                                <th scope="col">Preço</th>
+                                <th scope="col">Estoque</th>
+                                <th scope="col">Última Atualização</th>
+                                <th scope="col">Adicionar Estoque</th>
+                                <th scope="col" class="actions-column">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="lista-produtos">
+                            <!-- Lista de produtos será carregada aqui -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Produto (Adicionar/Editar) -->
+    <div class="modal fade" id="modalProduto" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="titulo-modal">Adicionar Produto</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="form-produto">
+                        <input type="hidden" id="produto-id">
+                        <div class="row mb-3">
+                            <div class="col-md-8">
+                                <label for="nome" class="form-label">Nome do Produto</label>
+                                <input type="text" class="form-control" id="nome" required>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="preco" class="form-label">Preço (R$)</label>
+                                <input type="number" class="form-control" id="preco" step="0.01" min="0" required>
+                            </div>
+                        </div>
+                        <div class="row mb-3">
+                            <div class="col-md-8">
+                                <label for="imagem_url" class="form-label">URL da Imagem</label>
+                                <input type="text" class="form-control" id="imagem_url" placeholder="https://...">
+                            </div>
+                            <div class="col-md-4">
+                                <label for="quantidade_estoque" class="form-label">Quantidade em Estoque</label>
+                                <input type="number" class="form-control" id="quantidade_estoque" min="0" required>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="descricao" class="form-label">Descrição</label>
+                            <textarea class="form-control" id="descricao" rows="3" required></textarea>
+                        </div>
+                    </form>
+                    <div id="preview-container" class="text-center mb-3 d-none">
+                        <h6 class="mb-2">Pré-visualização da Imagem</h6>
+                        <img id="preview-imagem" src="" alt="Pré-visualização" style="max-height: 150px; max-width: 100%;">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" id="btn-salvar">Salvar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Confirmação de Exclusão -->
+    <div class="modal fade" id="modalConfirmacao" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title">Confirmar Exclusão</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Tem certeza que deseja excluir o produto <strong id="nome-produto-exclusao"></strong>?</p>
+                    <p class="text-danger"><i class="bi bi-exclamation-triangle"></i> Esta ação não pode ser desfeita.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-danger" id="btn-confirmar-exclusao">Confirmar Exclusão</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Visualização de Produto -->
+    <div class="modal fade" id="modalVisualizacao" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Detalhes do Produto</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-4 text-center mb-3">
+                            <div id="visualizacao-imagem-container" class="bg-light d-flex align-items-center justify-content-center mb-3" style="height: 200px;">
+                                <img id="visualizacao-imagem" src="" alt="Imagem do produto" style="max-height: 200px; max-width: 100%; object-fit: contain;">
+                            </div>
+                            <div class="d-grid gap-2">
+                                <button class="btn btn-outline-primary btn-sm" id="btn-editar-visualizacao">
+                                    <i class="bi bi-pencil"></i> Editar Produto
+                                </button>
+                            </div>
+                        </div>
+                        <div class="col-md-8">
+                            <h4 id="visualizacao-nome" class="mb-3"></h4>
+                            <div class="mb-3">
+                                <h6>Descrição:</h6>
+                                <p id="visualizacao-descricao" class="text-muted"></p>
+                            </div>
+                            <div class="row">
+                                <div class="col-6">
+                                    <h6>Preço:</h6>
+                                    <p id="visualizacao-preco" class="fs-5 fw-bold text-primary"></p>
+                                </div>
+                                <div class="col-6">
+                                    <h6>Estoque:</h6>
+                                    <p id="visualizacao-estoque" class="fs-5"></p>
+                                </div>
+                            </div>
+                            <div class="row mt-2">
+                                <div class="col-12">
+                                    <h6>ID do Produto:</h6>
+                                    <p id="visualizacao-id" class="text-muted"></p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast de Notificação -->
+    <div class="toast-container position-fixed bottom-0 end-0 p-3">
+        <div id="toast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="toast-header">
+                <i class="bi bi-check-circle-fill text-success me-2"></i>
+                <strong class="me-auto">Sucesso</strong>
+                <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+            <div class="toast-body">
+                Operação realizada com sucesso!
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let produtos = [];
+        let produtoIdExclusao = null;
+        const modalProduto = new bootstrap.Modal(document.getElementById('modalProduto'));
+        const modalConfirmacao = new bootstrap.Modal(document.getElementById('modalConfirmacao'));
+        const modalVisualizacao = new bootstrap.Modal(document.getElementById('modalVisualizacao'));
+        const toast = new bootstrap.Toast(document.getElementById('toast'));
+        const formProduto = document.getElementById('form-produto');
+
+        // Carregar produtos ao iniciar a página
+        document.addEventListener('DOMContentLoaded', () => {
+            carregarProdutos();
+            
+            // Preview de imagem
+            document.getElementById('imagem_url').addEventListener('input', atualizarPreviewImagem);
+            
+            // Botão salvar
+            document.getElementById('btn-salvar').addEventListener('click', salvarProduto);
+            
+            // Botão confirmar exclusão
+            document.getElementById('btn-confirmar-exclusao').addEventListener('click', confirmarExclusao);
+            
+            // Botão editar na visualização
+            document.getElementById('btn-editar-visualizacao').addEventListener('click', () => {
+                modalVisualizacao.hide();
+                const produtoId = document.getElementById('visualizacao-id').textContent;
+                const produto = produtos.find(p => p.id === produtoId);
+                preencherFormulario(produto);
+                document.getElementById('titulo-modal').textContent = 'Editar Produto';
+                modalProduto.show();
+            });
+        });
+
+        async function carregarProdutos() {
+            try {
+                const response = await fetch('/api/produtos');
+                if (!response.ok) {
+                    throw new Error('Erro ao carregar produtos');
+                }
+                produtos = await response.json();
+                renderizarProdutos();
+            } catch (error) {
+                console.error('Erro:', error);
+                mostrarNotificacao('erro', 'Erro ao carregar produtos');
+            }
+        }
+
+        function renderizarProdutos() {
+            const tbody = document.getElementById('lista-produtos');
+            tbody.innerHTML = '';
+            
+            if (produtos.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="7" class="text-center py-4">
+                            <i class="bi bi-inbox fs-1 text-muted d-block mb-2"></i>
+                            <p class="mb-0">Nenhum produto cadastrado</p>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+            
+            produtos.forEach(produto => {
+                const tr = document.createElement('tr');
+                
+                // Formatação de data
+                let dataFormatada = 'Não disponível';
+                if (produto.data_atualizacao) {
+                    try {
+                        const data = new Date(produto.data_atualizacao);
+                        dataFormatada = data.toLocaleString('pt-BR');
+                    } catch (e) {
+                        console.error('Erro ao formatar data:', e);
+                    }
+                }
+                
+                tr.innerHTML = `
+                    <td>${produto.id}</td>
+                    <td>
+                        <div class="d-flex align-items-center">
+                            <div class="me-3" style="width: 40px; height: 40px;">
+                                <img 
+                                    src="${produto.imagem_url || '/static/images/no-image.png'}" 
+                                    alt="${produto.nome}" 
+                                    class="img-fluid rounded"
+                                    style="max-width: 100%; max-height: 40px; object-fit: contain;"
+                                    onerror="this.src='/static/images/no-image.png'">
+                            </div>
+                            <div>
+                                <div class="fw-bold">${produto.nome}</div>
+                                <div class="text-muted small">${produto.descricao.substring(0, 30)}${produto.descricao.length > 30 ? '...' : ''}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td>R$ ${produto.preco.toFixed(2)}</td>
+                    <td>
+                        <span class="badge ${produto.quantidade_estoque > 10 ? 'bg-success' : (produto.quantidade_estoque > 0 ? 'bg-warning' : 'bg-danger')}">
+                            ${produto.quantidade_estoque} unidades
+                        </span>
+                    </td>
+                    <td>${dataFormatada}</td>
+                    <td>
+                        <div class="input-group">
+                            <input type="number" class="form-control form-control-sm" id="add-estoque-${produto.id}" min="1" value="1" style="width: 60px;">
+                            <button class="btn btn-sm btn-success" onclick="adicionarEstoque('${produto.id}')">
+                                <i class="bi bi-plus-circle"></i> Adicionar
+                            </button>
+                        </div>
+                    </td>
+                    <td>
+                        <button class="btn btn-sm btn-info me-1" onclick="visualizarProduto('${produto.id}')">
+                            <i class="bi bi-eye"></i>
+                        </button>
+                        <button class="btn btn-sm btn-primary me-1" onclick="editarProduto('${produto.id}')">
+                            <i class="bi bi-pencil"></i>
+                        </button>
+                        <button class="btn btn-sm btn-danger" onclick="excluirProduto('${produto.id}', '${produto.nome}')">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // Função para normalizar strings (remover acentos e caracteres especiais)
+        function normalizarTexto(texto) {
+            if (!texto) return '';
+            return texto.toLowerCase()
+                    .normalize('NFD')
+                    .replace(/[\u0300-\u036f]/g, '')
+                    .replace(/[^\w\s]/gi, '');
+        }
+
+        function filtrarProdutos() {
+            const termo = document.getElementById('busca-produto').value;
+            const termoNormalizado = normalizarTexto(termo);
+            const tbody = document.getElementById('lista-produtos');
+            
+            // Se não houver termo de busca, mostrar todos os produtos
+            if (!termo.trim()) {
+                renderizarProdutos();
+                return;
+            }
+            
+            const produtosFiltrados = produtos.filter(produto => 
+                normalizarTexto(produto.nome).includes(termoNormalizado) || 
+                normalizarTexto(produto.descricao).includes(termoNormalizado) ||
+                produto.id.toString().includes(termo)
+            );
+            
+            tbody.innerHTML = '';
+            
+            if (produtosFiltrados.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="7" class="text-center py-4">
+                            <i class="bi bi-search fs-1 text-muted d-block mb-2"></i>
+                            <p class="mb-0">Nenhum produto encontrado para "${termo}"</p>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+            
+            produtosFiltrados.forEach(produto => {
+                const tr = document.createElement('tr');
+                
+                // Formatação de data
+                let dataFormatada = 'Não disponível';
+                if (produto.data_atualizacao) {
+                    try {
+                        const data = new Date(produto.data_atualizacao);
+                        dataFormatada = data.toLocaleString('pt-BR');
+                    } catch (e) {
+                        console.error('Erro ao formatar data:', e);
+                    }
+                }
+                
+                tr.innerHTML = `
+                    <td>${produto.id}</td>
+                    <td>
+                        <div class="d-flex align-items-center">
+                            <div class="me-3" style="width: 40px; height: 40px;">
+                                <img 
+                                    src="${produto.imagem_url || '/static/images/no-image.png'}" 
+                                    alt="${produto.nome}" 
+                                    class="img-fluid rounded"
+                                    style="max-width: 100%; max-height: 40px; object-fit: contain;"
+                                    onerror="this.src='/static/images/no-image.png'">
+                            </div>
+                            <div>
+                                <div class="fw-bold">${produto.nome}</div>
+                                <div class="text-muted small">${produto.descricao.substring(0, 30)}${produto.descricao.length > 30 ? '...' : ''}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td>R$ ${produto.preco.toFixed(2)}</td>
+                    <td>
+                        <span class="badge ${produto.quantidade_estoque > 10 ? 'bg-success' : (produto.quantidade_estoque > 0 ? 'bg-warning' : 'bg-danger')}">
+                            ${produto.quantidade_estoque} unidades
+                        </span>
+                    </td>
+                    <td>${dataFormatada}</td>
+                    <td>
+                        <div class="input-group">
+                            <input type="number" class="form-control form-control-sm" id="add-estoque-${produto.id}" min="1" value="1" style="width: 60px;">
+                            <button class="btn btn-sm btn-success" onclick="adicionarEstoque('${produto.id}')">
+                                <i class="bi bi-plus-circle"></i> Adicionar
+                            </button>
+                        </div>
+                    </td>
+                    <td>
+                        <button class="btn btn-sm btn-info me-1" onclick="visualizarProduto('${produto.id}')">
+                            <i class="bi bi-eye"></i>
+                        </button>
+                        <button class="btn btn-sm btn-primary me-1" onclick="editarProduto('${produto.id}')">
+                            <i class="bi bi-pencil"></i>
+                        </button>
+                        <button class="btn btn-sm btn-danger" onclick="excluirProduto('${produto.id}', '${produto.nome}')">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function atualizarPreviewImagem() {
+            const url = document.getElementById('imagem_url').value;
+            const previewContainer = document.getElementById('preview-container');
+            const previewImagem = document.getElementById('preview-imagem');
+            
+            if (url) {
+                previewImagem.src = url;
+                previewImagem.onerror = function() {
+                    previewContainer.classList.add('d-none');
+                };
+                previewImagem.onload = function() {
+                    previewContainer.classList.remove('d-none');
+                };
+            } else {
+                previewContainer.classList.add('d-none');
+            }
+        }
+
+        function mostrarNotificacao(tipo, mensagem) {
+            const toastElement = document.getElementById('toast');
+            const toastHeader = toastElement.querySelector('.toast-header');
+            const icone = toastHeader.querySelector('i');
+            const titulo = toastHeader.querySelector('strong');
+            const corpo = toastElement.querySelector('.toast-body');
+            
+            if (tipo === 'erro') {
+                icone.className = 'bi bi-exclamation-circle-fill text-danger me-2';
+                titulo.textContent = 'Erro';
+            } else if (tipo === 'aviso') {
+                icone.className = 'bi bi-exclamation-triangle-fill text-warning me-2';
+                titulo.textContent = 'Aviso';
+            } else {
+                icone.className = 'bi bi-check-circle-fill text-success me-2';
+                titulo.textContent = 'Sucesso';
+            }
+            
+            corpo.textContent = mensagem;
+            toast.show();
+        }
+
+        function limparFormulario() {
+            document.getElementById('produto-id').value = '';
+            document.getElementById('nome').value = '';
+            document.getElementById('descricao').value = '';
+            document.getElementById('preco').value = '';
+            document.getElementById('quantidade_estoque').value = '';
+            document.getElementById('imagem_url').value = '';
+            document.getElementById('preview-container').classList.add('d-none');
+        }
+
+        function preencherFormulario(produto) {
+            document.getElementById('produto-id').value = produto.id;
+            document.getElementById('nome').value = produto.nome;
+            document.getElementById('descricao').value = produto.descricao;
+            document.getElementById('preco').value = produto.preco;
+            document.getElementById('quantidade_estoque').value = produto.quantidade_estoque;
+            document.getElementById('imagem_url').value = produto.imagem_url || '';
+            atualizarPreviewImagem();
+        }
+
+        function visualizarProduto(id) {
+            const produto = produtos.find(p => p.id === id);
+            if (!produto) return;
+            
+            document.getElementById('visualizacao-nome').textContent = produto.nome;
+            document.getElementById('visualizacao-descricao').textContent = produto.descricao;
+            document.getElementById('visualizacao-preco').textContent = `R$ ${produto.preco.toFixed(2)}`;
+            document.getElementById('visualizacao-estoque').textContent = `${produto.quantidade_estoque} unidades`;
+            document.getElementById('visualizacao-id').textContent = produto.id;
+            
+            const imagemContainer = document.getElementById('visualizacao-imagem-container');
+            const imagem = document.getElementById('visualizacao-imagem');
+            
+            // Resetar o conteúdo do container para o estado original
+            imagemContainer.innerHTML = '<img id="visualizacao-imagem" src="" alt="Imagem do produto" style="max-height: 200px; max-width: 100%; object-fit: contain;">';
+            
+            // Obter novamente a referência da imagem após recriá-la
+            const novaImagem = document.getElementById('visualizacao-imagem');
+            
+            if (produto.imagem_url) {
+                novaImagem.src = produto.imagem_url;
+                novaImagem.style.display = 'block';
+                novaImagem.onerror = function() {
+                    novaImagem.style.display = 'none';
+                    imagemContainer.innerHTML = '<i class="bi bi-image text-muted" style="font-size: 5rem;"></i>';
+                };
+            } else {
+                novaImagem.style.display = 'none';
+                imagemContainer.innerHTML = '<i class="bi bi-image text-muted" style="font-size: 5rem;"></i>';
+            }
+            
+            modalVisualizacao.show();
+        }
+
+        function editarProduto(id) {
+            const produto = produtos.find(p => p.id === id);
+            if (!produto) return;
+            
+            preencherFormulario(produto);
+            document.getElementById('titulo-modal').textContent = 'Editar Produto';
+            modalProduto.show();
+        }
+
+        function excluirProduto(id, nome) {
+            produtoIdExclusao = id;
+            document.getElementById('nome-produto-exclusao').textContent = nome;
+            modalConfirmacao.show();
+        }
+
+        async function confirmarExclusao() {
+            if (!produtoIdExclusao) return;
+            
+            try {
+                const response = await fetch(`/api/produtos/${produtoIdExclusao}`, {
+                    method: 'DELETE'
+                });
+                
+                if (!response.ok) {
+                    const erro = await response.json();
+                    throw new Error(erro.erro || 'Erro ao excluir produto');
+                }
+                
+                modalConfirmacao.hide();
+                mostrarNotificacao('sucesso', 'Produto excluído com sucesso!');
+                
+                // Recarregar produtos
+                await carregarProdutos();
+                
+            } catch (error) {
+                console.error('Erro:', error);
+                mostrarNotificacao('erro', error.message);
+            } finally {
+                produtoIdExclusao = null;
+            }
+        }
+
+        async function salvarProduto() {
+            // Verificar se formulário é válido
+            if (!formProduto.checkValidity()) {
+                formProduto.reportValidity();
+                return;
+            }
+            
+            const id = document.getElementById('produto-id').value;
+            const nome = document.getElementById('nome').value;
+            const descricao = document.getElementById('descricao').value;
+            const preco = parseFloat(document.getElementById('preco').value);
+            const quantidade_estoque = parseInt(document.getElementById('quantidade_estoque').value);
+            const imagem_url = document.getElementById('imagem_url').value;
+            
+            const produto = {
+                nome,
+                descricao,
+                preco,
+                quantidade_estoque,
+                imagem_url
+            };
+            
+            try {
+                let response;
+                let mensagem;
+                
+                if (id) {
+                    // Editando produto existente
+                    response = await fetch(`/api/produtos/${id}`, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(produto)
+                    });
+                    mensagem = 'Produto atualizado com sucesso!';
+                } else {
+                    // Criando novo produto
+                    response = await fetch('/api/produtos', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(produto)
+                    });
+                    mensagem = 'Produto criado com sucesso!';
+                }
+                
+                if (!response.ok) {
+                    const erro = await response.json();
+                    throw new Error(erro.erro || 'Erro ao salvar produto');
+                }
+                
+                modalProduto.hide();
+                limparFormulario();
+                mostrarNotificacao('sucesso', mensagem);
+                
+                // Recarregar produtos
+                await carregarProdutos();
+                
+            } catch (error) {
+                console.error('Erro:', error);
+                mostrarNotificacao('erro', error.message);
+            }
+        }
+
+        // Função para abrir modal de criação de produto
+        function novoProduto() {
+            limparFormulario();
+            document.getElementById('titulo-modal').textContent = 'Adicionar Produto';
+            modalProduto.show();
+        }
+
+        // Adicionar evento ao botão do modal para limpar formulário ao fechar
+        document.addEventListener('DOMContentLoaded', function() {
+            // Obter a referência do modal
+            const modalElement = document.getElementById('modalProduto');
+            
+            // Adicionar evento quando o modal for fechado
+            modalElement.addEventListener('hidden.bs.modal', function() {
+                limparFormulario();
+            });
+        });
+
+        // Função para adicionar estoque
+        async function adicionarEstoque(produtoId) {
+            const quantidadeInput = document.getElementById(`add-estoque-${produtoId}`);
+            const quantidade = parseInt(quantidadeInput.value);
+            
+            if (isNaN(quantidade) || quantidade <= 0) {
+                mostrarNotificacao('erro', 'Quantidade inválida. Informe um número positivo.');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/produtos/${produtoId}/estoque`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ quantidade: quantidade })
+                });
+                
+                if (!response.ok) {
+                    const erro = await response.json();
+                    throw new Error(erro.erro || 'Erro ao atualizar estoque');
+                }
+                
+                mostrarNotificacao('sucesso', `Adicionado ${quantidade} unidade(s) ao estoque!`);
+                
+                // Recarregar produtos para atualizar o estoque
+                await carregarProdutos();
+                
+            } catch (error) {
+                console.error('Erro:', error);
+                mostrarNotificacao('erro', error.message);
+            }
+        }
+    </script>
+</body>
+</html> 

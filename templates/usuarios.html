@@ -1,0 +1,1000 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerenciamento de Usuários</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css">
+    <style>
+        .usuario-card {
+            transition: transform 0.2s;
+            border-left: 4px solid #6610f2;
+        }
+        .usuario-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        .toast-container {
+            z-index: 1060 !important;
+        }
+        .toast {
+            z-index: 1061 !important;
+        }
+        .table-responsive {
+            max-height: 70vh;
+        }
+        .actions-column {
+            width: 200px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Barra de Navegação -->
+    <nav class="navbar navbar-expand-lg navbar-light bg-light mb-4">
+        <div class="container">
+            <a class="navbar-brand" href="{{ url_for('index') }}">
+                <i class="bi bi-box-seam me-2"></i>Catálogo Vortex
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    {% if 'usuario_id' in session %}
+                        <li class="nav-item">
+                            <span class="nav-link text-muted">Olá, {{ session['usuario_nome'] }}</span>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('index') }}">
+                                <i class="bi bi-grid me-1"></i> Catálogo
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('estoque') }}">
+                                <i class="bi bi-box-seam me-1"></i> Estoque
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('lista_pedidos') }}">
+                                <i class="bi bi-list-check me-1"></i> Pedidos
+                            </a>
+                        </li>
+                        {% if session['usuario_tipo'] == 'gerente' or session['usuario_tipo'] == 'dev' %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('listar_usuarios') }}">
+                                <i class="bi bi-people me-1"></i> Usuários
+                            </a>
+                        </li>
+                        {% endif %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('logout') }}">
+                                <i class="bi bi-box-arrow-right me-1"></i> Sair
+                            </a>
+                        </li>
+                    {% else %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('index') }}">
+                                <i class="bi bi-grid me-1"></i> Catálogo
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('login') }}">
+                                <i class="bi bi-box-arrow-in-right me-1"></i> Login
+                            </a>
+                        </li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <div class="row mb-4">
+            <div class="col">
+                <h1>Gerenciamento de Usuários</h1>
+                <p class="text-muted">Adicione, edite e gerencie os usuários do sistema.</p>
+            </div>
+            <div class="col text-end">
+                <button class="btn" style="background-color: #6610f2; color: white;" onclick="novoUsuario()">
+                    <i class="bi bi-person-plus"></i> Novo Usuário
+                </button>
+            </div>
+        </div>
+        
+        <!-- Tabela de usuários -->
+        <div class="card mb-4">
+            <div class="card-header bg-light">
+                <div class="row align-items-center">
+                    <div class="col">
+                        <h5 class="mb-0"><i class="bi bi-people me-2"></i>Lista de Usuários</h5>
+                    </div>
+                    <div class="col-md-4">
+                        <input type="text" class="form-control" id="busca-usuario" placeholder="Buscar usuário..." onkeyup="filtrarUsuarios()">
+                    </div>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th scope="col">ID</th>
+                                <th scope="col">Nome</th>
+                                <th scope="col">Email</th>
+                                <th scope="col">Telefone</th>
+                                <th scope="col" class="actions-column">Ações</th>
+                                <th scope="col">Tipo</th>
+                            </tr>
+                        </thead>
+                        <tbody id="lista-usuarios">
+                            <!-- Lista de usuários será carregada aqui via JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Usuário (Adicionar/Editar) -->
+    <div class="modal fade" id="modalUsuario" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="titulo-modal">Adicionar Usuário</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="form-usuario">
+                        <input type="hidden" id="usuario-id">
+                        <div class="mb-3">
+                            <label for="nome" class="form-label">Nome completo</label>
+                            <input type="text" class="form-control" id="nome" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="email" class="form-label">Email</label>
+                            <input type="email" class="form-control" id="email" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="telefone" class="form-label">Telefone</label>
+                            <input type="tel" class="form-control" id="telefone" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="tipo" class="form-label">Tipo de usuário</label>
+                            <select class="form-select" id="tipo" required>
+                                <option value="funcionario">Funcionário</option>
+                                <option value="gerente">Gerente</option>
+                                {% if session['usuario_tipo'] == 'dev' %}
+                                <option value="dev">Desenvolvedor</option>
+                                {% endif %}
+                            </select>
+                        </div>
+                        <div class="mb-3" id="senha-container">
+                            <label for="senha" class="form-label">Senha</label>
+                            <div class="input-group">
+                            <input type="password" class="form-control" id="senha" required>
+                                <button class="btn btn-outline-secondary" type="button" id="btn-mostrar-senha">
+                                    <i class="bi bi-eye"></i>
+                                </button>
+                            </div>
+                            <small class="text-muted">Mínimo de 6 caracteres</small>
+                        </div>
+                        <div class="mb-3" id="confirmar-senha-container">
+                            <label for="confirmar-senha" class="form-label">Confirmar Senha</label>
+                            <div class="input-group">
+                                <input type="password" class="form-control" id="confirmar-senha" required>
+                                <button class="btn btn-outline-secondary" type="button" id="btn-mostrar-confirmar-senha">
+                                    <i class="bi bi-eye"></i>
+                                </button>
+                            </div>
+                            <div class="invalid-feedback" id="senha-feedback"></div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" id="btn-salvar">Salvar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Confirmação de Exclusão -->
+    <div class="modal fade" id="modalConfirmacao" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title">Confirmar Exclusão</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Tem certeza que deseja excluir o usuário <strong id="nome-usuario-exclusao"></strong>?</p>
+                    <p class="text-danger"><i class="bi bi-exclamation-triangle"></i> Esta ação não pode ser desfeita.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-danger" id="btn-confirmar-exclusao">Confirmar Exclusão</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Visualização de Senha -->
+    <div class="modal fade" id="modalSenha" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Visualizar Senha</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Para visualizar a senha do usuário <strong id="nome-usuario-senha"></strong>, por favor, confirme a sua senha de gerente:</p>
+                    <div class="mb-3">
+                        <label for="senha-confirmacao" class="form-label">Sua senha</label>
+                        <input type="password" class="form-control" id="senha-confirmacao">
+                    </div>
+                    <div class="alert alert-danger d-none" id="senha-feedback"></div>
+                    <div class="alert alert-info d-none" id="senha-container">
+                        <p class="mb-0" id="senha-usuario"></p>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                    <button type="button" class="btn btn-primary" onclick="confirmarSenha()">Confirmar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast de Notificação -->
+    <div class="toast-container position-fixed bottom-0 end-0 p-3">
+        <div id="toast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="toast-header">
+                <i class="bi bi-check-circle-fill text-success me-2"></i>
+                <strong class="me-auto">Sucesso</strong>
+                <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+            <div class="toast-body">
+                Operação realizada com sucesso!
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let usuarios = [];
+        let usuarioIdExclusao = null;
+        let usuarioSenhaId = null;
+        const modalUsuario = new bootstrap.Modal(document.getElementById('modalUsuario'));
+        const modalConfirmacao = new bootstrap.Modal(document.getElementById('modalConfirmacao'));
+        const modalSenha = new bootstrap.Modal(document.getElementById('modalSenha'));
+        const toast = new bootstrap.Toast(document.getElementById('toast'));
+        const formUsuario = document.getElementById('form-usuario');
+
+        // Carregar usuários ao iniciar a página
+        document.addEventListener('DOMContentLoaded', () => {
+            carregarUsuarios();
+            
+            // Botão salvar
+            document.getElementById('btn-salvar').addEventListener('click', salvarUsuario);
+            
+            // Botão confirmar exclusão
+            document.getElementById('btn-confirmar-exclusao').addEventListener('click', confirmarExclusao);
+            
+            // Formatação do nome (formato título)
+            document.getElementById('nome').addEventListener('blur', function() {
+                if (this.value.trim()) {
+                    this.value = formatarNomeEmTitulo(this.value);
+                }
+            });
+            
+            // Formatação do telefone
+            document.getElementById('telefone').addEventListener('input', function(e) {
+                const valor = formatarTelefone(this.value);
+                this.value = valor;
+            });
+            
+            // Toggle de visibilidade da senha
+            document.getElementById('btn-mostrar-senha').addEventListener('click', function() {
+                const senhaInput = document.getElementById('senha');
+                const icone = this.querySelector('i');
+                
+                if (senhaInput.type === 'password') {
+                    senhaInput.type = 'text';
+                    icone.className = 'bi bi-eye-slash';
+                } else {
+                    senhaInput.type = 'password';
+                    icone.className = 'bi bi-eye';
+                }
+            });
+            
+            // Toggle de visibilidade da confirmação de senha
+            document.getElementById('btn-mostrar-confirmar-senha').addEventListener('click', function() {
+                const senhaInput = document.getElementById('confirmar-senha');
+                const icone = this.querySelector('i');
+                
+                if (senhaInput.type === 'password') {
+                    senhaInput.type = 'text';
+                    icone.className = 'bi bi-eye-slash';
+                } else {
+                    senhaInput.type = 'password';
+                    icone.className = 'bi bi-eye';
+                }
+            });
+            
+            // Verificar se senhas coincidem
+            document.getElementById('confirmar-senha').addEventListener('input', function() {
+                const senha = document.getElementById('senha').value;
+                const confirmacao = this.value;
+                const feedback = document.getElementById('senha-feedback');
+                
+                if (senha && confirmacao && senha !== confirmacao) {
+                    feedback.textContent = 'As senhas não coincidem';
+                    this.classList.add('is-invalid');
+                } else {
+                    feedback.textContent = '';
+                    this.classList.remove('is-invalid');
+                }
+            });
+        });
+
+        // Função para normalizar strings (remover acentos e caracteres especiais)
+        function normalizarTexto(texto) {
+            if (!texto) return '';
+            return texto.toLowerCase()
+                    .normalize('NFD')
+                    .replace(/[\u0300-\u036f]/g, '')
+                    .replace(/[^\w\s]/gi, '');
+        }
+
+        async function carregarUsuarios() {
+            try {
+                mostrarNotificacao('aviso', 'Carregando usuários...');
+                const response = await fetch('/api/usuarios');
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.erro || 'Erro ao carregar usuários: ' + response.status);
+                }
+                usuarios = await response.json();
+                
+                if (Array.isArray(usuarios)) {
+                    mostrarNotificacao('sucesso', `${usuarios.length} usuários carregados com sucesso`);
+                renderizarUsuarios();
+                } else {
+                    console.error('Dados de usuários inválidos:', usuarios);
+                    mostrarNotificacao('erro', 'Formato de dados inválido recebido do servidor');
+                }
+            } catch (error) {
+                console.error('Erro ao carregar usuários:', error);
+                mostrarNotificacao('erro', `Erro ao carregar usuários: ${error.message}`);
+            }
+        }
+
+        function renderizarUsuarios() {
+            const tbody = document.getElementById('lista-usuarios');
+            tbody.innerHTML = '';
+            
+            // Debug - mostrar no console quantos usuários estão sendo renderizados
+            console.log(`Renderizando ${usuarios.length} usuários`);
+            
+            if (!usuarios || usuarios.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="6" class="text-center py-4">
+                            <i class="bi bi-inbox fs-1 text-muted d-block mb-2"></i>
+                            <p class="mb-0">Nenhum usuário cadastrado</p>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+            
+            // Obter o ID do usuário atual e tipo
+            const usuarioAtualId = "{{ session['usuario_id'] }}";
+            const usuarioAtualTipo = "{{ session['usuario_tipo'] }}";
+            // Corrigir a verificação de gerente para incluir também 'dev'
+            const isGerente = usuarioAtualTipo === 'gerente' || usuarioAtualTipo === 'dev';
+            
+            // Debug - mostrar informações sobre o usuário atual
+            console.log(`Usuário atual: ID=${usuarioAtualId}, Tipo=${usuarioAtualTipo}, isGerente=${isGerente}`);
+            
+            usuarios.forEach(usuario => {
+                const tr = document.createElement('tr');
+                
+                // Verificar se é o usuário atual
+                const isCurrentUser = usuario.id === usuarioAtualId;
+                const isAdmin = usuario.tipo === 'administrador' || usuario.tipo === 'dev';
+                const telefoneFormatado = usuario.telefone || 'Não informado';
+                const nomeEscapado = usuario.nome.replace(/'/g, "\\'");
+                const emailEscapado = usuario.email.replace(/'/g, "\\'");
+                const telefoneEscapado = telefoneFormatado.replace(/'/g, "\\'");
+                
+                let acoesHTML = '';
+                
+                if (isAdmin) {
+                    // Administrador/Dev não pode ser modificado
+                    acoesHTML = `
+                        <div class="d-flex">
+                                <button class="btn btn-sm btn-info me-1" onclick="visualizarUsuario('${usuario.id}')">
+                                    <i class="bi bi-eye"></i>
+                                </button>
+                            <span class="text-danger ms-2"><i class="bi bi-shield-lock"></i> ${usuario.tipo === 'dev' ? 'Desenvolvedor' : 'Administrador'}</span>
+                        </div>
+                    `;
+                } else if (!isCurrentUser) {
+                    acoesHTML = `
+                        <div class="d-flex">
+                            <button class="btn btn-sm btn-info me-1" onclick="visualizarUsuario('${usuario.id}')">
+                                <i class="bi bi-eye"></i>
+                            </button>
+                            <button class="btn btn-sm btn-primary me-1" onclick="editarUsuario('${usuario.id}', '${nomeEscapado}', '${emailEscapado}', '${telefoneEscapado}', '${usuario.tipo}')">
+                                    <i class="bi bi-pencil"></i>
+                                </button>
+                            <button class="btn btn-sm btn-danger" onclick="excluirUsuario('${usuario.id}', '${nomeEscapado}')">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                        </div>
+                    `;
+                } else if (isGerente) {
+                    acoesHTML = `
+                        <div class="d-flex">
+                            <button class="btn btn-sm btn-info me-1" onclick="visualizarUsuario('${usuario.id}')">
+                                <i class="bi bi-eye"></i>
+                            </button>
+                            <button class="btn btn-sm btn-primary me-1" onclick="editarUsuario('${usuario.id}', '${nomeEscapado}', '${emailEscapado}', '${telefoneEscapado}', '${usuario.tipo}')">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            <span class="text-muted ms-2"><i class="bi bi-info-circle"></i> Seu perfil</span>
+                        </div>
+                    `;
+                } else {
+                    acoesHTML = `<span class="text-muted"><i class="bi bi-info-circle"></i> Usuário atual</span>`;
+                }
+                
+                tr.innerHTML = `
+                    <td>${usuario.id}</td>
+                    <td>${usuario.nome}</td>
+                    <td>${usuario.email}</td>
+                    <td>${telefoneFormatado}</td>
+                    <td>${acoesHTML}</td>
+                    <td>
+                        <span class="badge ${usuario.tipo === 'dev' ? 'bg-info text-dark' : (usuario.tipo === 'administrador' ? 'bg-dark' : (usuario.tipo === 'gerente' ? 'bg-danger' : 'bg-primary'))}">
+                            ${usuario.tipo === 'dev' ? 'Desenvolvedor' : (usuario.tipo === 'administrador' ? 'Administrador' : (usuario.tipo === 'gerente' ? 'Gerente' : 'Funcionário'))}
+                        </span>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function filtrarUsuarios() {
+            const termo = document.getElementById('busca-usuario').value;
+            if (!termo.trim()) {
+                renderizarUsuarios();
+                return;
+            }
+            
+            const termoNormalizado = normalizarTexto(termo);
+            
+            const usuariosFiltrados = usuarios.filter(usuario => 
+                normalizarTexto(usuario.nome).includes(termoNormalizado) || 
+                normalizarTexto(usuario.email).includes(termoNormalizado) ||
+                normalizarTexto(usuario.telefone || '').includes(termoNormalizado) ||
+                normalizarTexto(usuario.tipo).includes(termoNormalizado) ||
+                usuario.id.toString().includes(termo)
+            );
+            
+            const tbody = document.getElementById('lista-usuarios');
+            tbody.innerHTML = '';
+            
+            if (usuariosFiltrados.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="6" class="text-center py-4">
+                            <i class="bi bi-search fs-1 text-muted d-block mb-2"></i>
+                            <p class="mb-0">Nenhum usuário encontrado para "${termo}"</p>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+            
+            const usuarioAtualId = "{{ session['usuario_id'] }}";
+            const usuarioAtualTipo = "{{ session['usuario_tipo'] }}";
+            const isGerente = usuarioAtualTipo === 'gerente' || usuarioAtualTipo === 'dev';
+            
+            usuariosFiltrados.forEach(usuario => {
+                const tr = document.createElement('tr');
+                const isCurrentUser = usuario.id === usuarioAtualId;
+                const isAdmin = usuario.tipo === 'administrador' || usuario.tipo === 'dev';
+                // Corrigir a verificação para o usuário logado ser do tipo dev também
+                const isGerenteLogado = usuarioAtualTipo === 'gerente' || usuarioAtualTipo === 'dev';
+                const telefoneFormatado = usuario.telefone || 'Não informado';
+                const nomeEscapado = usuario.nome.replace(/'/g, "\\'");
+                const emailEscapado = usuario.email.replace(/'/g, "\\'");
+                const telefoneEscapado = telefoneFormatado.replace(/'/g, "\\'");
+                
+                let acoesHTML = '';
+                
+                if (isAdmin) {
+                    // Administrador/Dev não pode ser modificado
+                    acoesHTML = `
+                        <div class="d-flex">
+                                <button class="btn btn-sm btn-info me-1" onclick="visualizarUsuario('${usuario.id}')">
+                                    <i class="bi bi-eye"></i>
+                                </button>
+                            <span class="text-danger ms-2"><i class="bi bi-shield-lock"></i> ${usuario.tipo === 'dev' ? 'Desenvolvedor' : 'Administrador'}</span>
+                        </div>
+                    `;
+                } else if (!isCurrentUser) {
+                    acoesHTML = `
+                        <div class="d-flex">
+                            <button class="btn btn-sm btn-info me-1" onclick="visualizarUsuario('${usuario.id}')">
+                                <i class="bi bi-eye"></i>
+                            </button>
+                            <button class="btn btn-sm btn-primary me-1" onclick="editarUsuario('${usuario.id}', '${nomeEscapado}', '${emailEscapado}', '${telefoneEscapado}', '${usuario.tipo}')">
+                                    <i class="bi bi-pencil"></i>
+                                </button>
+                            <button class="btn btn-sm btn-danger" onclick="excluirUsuario('${usuario.id}', '${nomeEscapado}')">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                        </div>
+                    `;
+                } else if (isGerenteLogado) {
+                    acoesHTML = `
+                        <div class="d-flex">
+                            <button class="btn btn-sm btn-info me-1" onclick="visualizarUsuario('${usuario.id}')">
+                                <i class="bi bi-eye"></i>
+                            </button>
+                            <button class="btn btn-sm btn-primary me-1" onclick="editarUsuario('${usuario.id}', '${nomeEscapado}', '${emailEscapado}', '${telefoneEscapado}', '${usuario.tipo}')">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            <span class="text-muted ms-2"><i class="bi bi-info-circle"></i> Seu perfil</span>
+                        </div>
+                    `;
+                } else {
+                    acoesHTML = `<span class="text-muted"><i class="bi bi-info-circle"></i> Usuário atual</span>`;
+                }
+                
+                tr.innerHTML = `
+                    <td>${usuario.id}</td>
+                    <td>${usuario.nome}</td>
+                    <td>${usuario.email}</td>
+                    <td>${telefoneFormatado}</td>
+                    <td>${acoesHTML}</td>
+                    <td>
+                        <span class="badge ${usuario.tipo === 'dev' ? 'bg-info text-dark' : (usuario.tipo === 'administrador' ? 'bg-dark' : (usuario.tipo === 'gerente' ? 'bg-danger' : 'bg-primary'))}">
+                            ${usuario.tipo === 'dev' ? 'Desenvolvedor' : (usuario.tipo === 'administrador' ? 'Administrador' : (usuario.tipo === 'gerente' ? 'Gerente' : 'Funcionário'))}
+                        </span>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function mostrarNotificacao(tipo, mensagem) {
+            const toastElement = document.getElementById('toast');
+            const toastHeader = toastElement.querySelector('.toast-header');
+            const icone = toastHeader.querySelector('i');
+            const titulo = toastHeader.querySelector('strong');
+            const corpo = toastElement.querySelector('.toast-body');
+            
+            if (tipo === 'erro') {
+                icone.className = 'bi bi-exclamation-circle-fill text-danger me-2';
+                titulo.textContent = 'Erro';
+            } else if (tipo === 'aviso') {
+                icone.className = 'bi bi-exclamation-triangle-fill text-warning me-2';
+                titulo.textContent = 'Aviso';
+            } else {
+                icone.className = 'bi bi-check-circle-fill text-success me-2';
+                titulo.textContent = 'Sucesso';
+            }
+            
+            corpo.textContent = mensagem;
+            toast.show();
+        }
+
+        function limparFormulario() {
+            document.getElementById('usuario-id').value = '';
+            document.getElementById('nome').value = '';
+            document.getElementById('email').value = '';
+            document.getElementById('telefone').value = '';
+            document.getElementById('tipo').value = 'funcionario';
+            document.getElementById('senha').value = '';
+            document.getElementById('confirmar-senha').value = '';
+            document.getElementById('senha-container').style.display = 'block';
+            document.getElementById('confirmar-senha-container').style.display = 'block';
+            document.getElementById('senha').setAttribute('required', 'required');
+            document.getElementById('confirmar-senha').setAttribute('required', 'required');
+        }
+
+        function novoUsuario() {
+            limparFormulario();
+            document.getElementById('titulo-modal').textContent = 'Adicionar Usuário';
+            document.getElementById('senha-container').style.display = 'block';
+            document.getElementById('confirmar-senha-container').style.display = 'block';
+            modalUsuario.show();
+        }
+
+        function editarUsuario(id, nome, email, telefone, tipo) {
+            document.getElementById('usuario-id').value = id;
+            document.getElementById('nome').value = nome;
+            document.getElementById('email').value = email;
+            document.getElementById('telefone').value = telefone || '';
+            document.getElementById('tipo').value = tipo;
+            document.getElementById('senha').value = '';
+            document.getElementById('confirmar-senha').value = '';
+            document.getElementById('senha').removeAttribute('required');
+            document.getElementById('confirmar-senha').removeAttribute('required');
+            document.getElementById('senha-container').style.display = 'none';
+            document.getElementById('confirmar-senha-container').style.display = 'none';
+            document.getElementById('titulo-modal').textContent = 'Editar Usuário';
+            modalUsuario.show();
+        }
+
+        function excluirUsuario(id, nome) {
+            // Não permitir exclusão do administrador
+            if (id === "1") {
+                mostrarNotificacao('erro', 'O administrador não pode ser excluído');
+                return;
+            }
+            
+            usuarioIdExclusao = id;
+            document.getElementById('nome-usuario-exclusao').textContent = nome;
+            modalConfirmacao.show();
+        }
+
+        function verSenha(id, nome) {
+            usuarioSenhaId = id;
+            document.getElementById('nome-usuario-senha').textContent = nome;
+            document.getElementById('senha-confirmacao').value = '';
+            document.getElementById('senha-feedback').classList.add('d-none');
+            document.getElementById('senha-container').classList.add('d-none');
+            modalSenha.show();
+        }
+
+        async function confirmarSenha() {
+            if (!usuarioSenhaId) return;
+            
+            const senhaGerente = document.getElementById('senha-confirmacao').value;
+            
+            if (!senhaGerente) {
+                document.getElementById('senha-feedback').textContent = 'Por favor, informe sua senha.';
+                document.getElementById('senha-feedback').classList.remove('d-none');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/usuarios/verificar-senha', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        senha: senhaGerente
+                    })
+                });
+                
+                if (!response.ok) {
+                    document.getElementById('senha-feedback').textContent = 'Senha incorreta. Por favor, tente novamente.';
+                    document.getElementById('senha-feedback').classList.remove('d-none');
+                    document.getElementById('senha-container').classList.add('d-none');
+                    return;
+                }
+                
+                // Solicitar a informação sobre a senha do usuário
+                const senhaResponse = await fetch(`/api/usuarios/${usuarioSenhaId}/senha`, {
+                    method: 'GET'
+                });
+                
+                if (!senhaResponse.ok) {
+                    document.getElementById('senha-feedback').textContent = 'Erro ao recuperar informações sobre a senha. Tente novamente.';
+                    document.getElementById('senha-feedback').classList.remove('d-none');
+                    return;
+                }
+                
+                const resultado = await senhaResponse.json();
+                
+                // Exibir a senha retornada pela API
+                if (resultado.senha) {
+                    document.getElementById('senha-usuario').textContent = `Senha: ${resultado.senha}`;
+                    document.getElementById('senha-feedback').classList.add('d-none');
+                    document.getElementById('senha-container').classList.remove('d-none');
+                } else if (resultado.mensagem) {
+                    document.getElementById('senha-usuario').textContent = resultado.mensagem;
+                    document.getElementById('senha-feedback').classList.add('d-none');
+                    document.getElementById('senha-container').classList.remove('d-none');
+                } else if (resultado.erro) {
+                    document.getElementById('senha-feedback').textContent = resultado.erro;
+                    document.getElementById('senha-feedback').classList.remove('d-none');
+                }
+                
+            } catch (error) {
+                console.error('Erro:', error);
+                document.getElementById('senha-feedback').textContent = 'Erro ao verificar senha. Tente novamente.';
+                document.getElementById('senha-feedback').classList.remove('d-none');
+            }
+        }
+
+        async function confirmarExclusao() {
+            if (!usuarioIdExclusao) return;
+            
+            try {
+                const response = await fetch(`/api/usuarios/${usuarioIdExclusao}`, {
+                    method: 'DELETE'
+                });
+                
+                if (!response.ok) {
+                    const erro = await response.json();
+                    throw new Error(erro.erro || 'Erro ao excluir usuário');
+                }
+                
+                modalConfirmacao.hide();
+                mostrarNotificacao('sucesso', 'Usuário excluído com sucesso!');
+                
+                // Recarregar usuários
+                await carregarUsuarios();
+                
+            } catch (error) {
+                console.error('Erro:', error);
+                mostrarNotificacao('erro', error.message);
+            } finally {
+                usuarioIdExclusao = null;
+            }
+        }
+
+        async function salvarUsuario() {
+            // Verificar se formulário é válido
+            if (!formUsuario.checkValidity()) {
+                formUsuario.reportValidity();
+                return;
+            }
+            
+            const id = document.getElementById('usuario-id').value;
+            const nome = document.getElementById('nome').value.trim();
+            const email = document.getElementById('email').value.trim();
+            const telefone = document.getElementById('telefone').value.trim();
+            const tipo = document.getElementById('tipo').value;
+            const senha = document.getElementById('senha').value;
+            const confirmarSenha = document.getElementById('confirmar-senha').value;
+            
+            // Validar confirmação de senha para novos usuários ou quando a senha é alterada
+            if ((!id || senha) && senha !== confirmarSenha) {
+                mostrarNotificacao('erro', 'As senhas não coincidem');
+                return;
+            }
+            
+            // Validações adicionais
+            
+            // 1. Validar nome (mínimo duas palavras)
+            const palavrasNome = nome.split(/\s+/);
+            if (palavrasNome.length < 2) {
+                mostrarNotificacao('erro', 'O nome deve conter pelo menos nome e sobrenome');
+                return;
+            }
+            
+            // 2. Validar comprimento do nome
+            if (nome.length < 5 || nome.length > 100) {
+                mostrarNotificacao('erro', 'Nome deve ter entre 5 e 100 caracteres');
+                return;
+            }
+            
+            // 3. Verificar se o nome contém apenas letras e espaços
+            if (!/^[A-Za-zÀ-ÖØ-öø-ÿ\s]+$/.test(nome)) {
+                mostrarNotificacao('erro', 'Nome deve conter apenas letras e espaços');
+                return;
+            }
+            
+            // 4. Validar formato de email
+            if (!/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(email)) {
+                mostrarNotificacao('erro', 'Formato de email inválido');
+                return;
+            }
+            
+            // 5. Validar tamanho do email
+            if (email.length > 150) {
+                mostrarNotificacao('erro', 'Email muito longo (máximo 150 caracteres)');
+                return;
+            }
+            
+            // 6. Validar telefone (pelo menos 10 dígitos)
+            const telefoneDigits = telefone.replace(/\D/g, '');
+            if (telefoneDigits.length < 10 || telefoneDigits.length > 11) {
+                mostrarNotificacao('erro', 'Telefone deve ter entre 10 e 11 dígitos');
+                return;
+            }
+            
+            // 7. Validar formato do telefone
+            if (!/^\(?(\d{2})\)?[-. ]?(\d{4,5})[-. ]?(\d{4})$/.test(telefone)) {
+                mostrarNotificacao('erro', 'Formato de telefone inválido. Use (XX) XXXXX-XXXX ou (XX) XXXX-XXXX');
+                return;
+            }
+            
+            // 8. Validar senha para novos usuários ou ao alterar senha
+            if ((!id || senha) && senha.length < 6) {
+                mostrarNotificacao('erro', 'A senha deve ter pelo menos 6 caracteres');
+                return;
+            }
+            
+            // 9. Verificar se a senha tem pelo menos um número e uma letra
+            if ((!id || senha) && (!(/[A-Za-z]/.test(senha)) || !(/[0-9]/.test(senha)))) {
+                mostrarNotificacao('erro', 'A senha deve conter pelo menos uma letra e um número');
+                return;
+            }
+            
+            const usuario = {
+                nome,
+                email,
+                telefone,
+                tipo
+            };
+            
+            // Adicionar senha apenas se estiver criando um novo usuário ou se a senha for preenchida
+            if (!id || senha) {
+                usuario.senha = senha;
+            }
+            
+            try {
+                let response;
+                let mensagem;
+                
+                if (id) {
+                    // Editando usuário existente
+                    response = await fetch(`/api/usuarios/${id}`, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(usuario)
+                    });
+                    mensagem = 'Usuário atualizado com sucesso!';
+                } else {
+                    // Criando novo usuário
+                    response = await fetch('/api/usuarios', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(usuario)
+                    });
+                    mensagem = 'Usuário criado com sucesso!';
+                }
+                
+                if (!response.ok) {
+                    const erro = await response.json();
+                    throw new Error(erro.erro || 'Erro ao salvar usuário');
+                }
+                
+                modalUsuario.hide();
+                limparFormulario();
+                mostrarNotificacao('sucesso', mensagem);
+                
+                // Recarregar usuários
+                await carregarUsuarios();
+                
+            } catch (error) {
+                console.error('Erro:', error);
+                mostrarNotificacao('erro', error.message);
+            }
+        }
+
+        function visualizarUsuario(id) {
+            const usuario = usuarios.find(u => u.id === id);
+            if (!usuario) return;
+            
+            const isAdmin = usuario.tipo === 'administrador' || usuario.tipo === 'dev';
+            const tipoFormatado = usuario.tipo === 'dev' ? 'Desenvolvedor' : (usuario.tipo === 'administrador' ? 'Administrador' : (usuario.tipo === 'gerente' ? 'Gerente' : 'Funcionário'));
+            const telefoneFormatado = usuario.telefone || 'Não informado';
+            const nomeEscapado = usuario.nome.replace(/'/g, "\\'");
+            const emailEscapado = usuario.email.replace(/'/g, "\\'");
+            const telefoneEscapado = telefoneFormatado.replace(/'/g, "\\'");
+            
+            let html = `
+                <div class="card">
+                    <div class="card-header bg-light">
+                        <h5 class="mb-0">Informações do Usuário</h5>
+                    </div>
+                    <div class="card-body">
+                        <p><strong>ID:</strong> ${usuario.id}</p>
+                        <p><strong>Nome:</strong> ${usuario.nome}</p>
+                        <p><strong>Email:</strong> ${usuario.email}</p>
+                        <p><strong>Telefone:</strong> ${telefoneFormatado}</p>
+                        <p><strong>Tipo:</strong> <span class="badge ${usuario.tipo === 'dev' ? 'bg-info text-dark' : (usuario.tipo === 'administrador' ? 'bg-dark' : (usuario.tipo === 'gerente' ? 'bg-danger' : 'bg-primary'))}">${tipoFormatado}</span></p>
+                    </div>
+                </div>
+            `;
+            
+            let footerButtons = '';
+            
+            if (isAdmin) {
+                // Administrador não pode ser editado
+                footerButtons = `
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                `;
+            } else {
+                footerButtons = `
+                    <button type="button" class="btn btn-primary" onclick="editarUsuario('${usuario.id}', '${nomeEscapado}', '${emailEscapado}', '${telefoneEscapado}', '${usuario.tipo}')">Editar</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                `;
+            }
+            
+            const modalEl = document.createElement('div');
+            modalEl.className = 'modal fade';
+            modalEl.id = 'modalDetalhesUsuario';
+            modalEl.innerHTML = `
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Detalhes do Usuário</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            ${html}
+                        </div>
+                        <div class="modal-footer">
+                            ${footerButtons}
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modalEl);
+            const bsModal = new bootstrap.Modal(modalEl);
+            bsModal.show();
+            
+            modalEl.addEventListener('hidden.bs.modal', function () {
+                document.body.removeChild(modalEl);
+            });
+        }
+
+        function verSenhaComCloseModal(id, nome) {
+            // Fecha a modal de detalhes antes de abrir a modal de senha
+            const modalDetalhes = bootstrap.Modal.getInstance(document.getElementById('modalDetalhesUsuario'));
+            if (modalDetalhes) {
+                modalDetalhes.hide();
+            }
+            
+            // Aguarda um momento para garantir que a modal foi fechada antes de abrir a nova
+            setTimeout(() => {
+                verSenha(id, nome);
+            }, 200);
+        }
+
+        // Função para formatar nome em título (primeira letra de cada palavra em maiúscula)
+        function formatarNomeEmTitulo(nome) {
+            return nome
+                .trim()
+                .toLowerCase()
+                .split(' ')
+                .map(palavra => palavra.charAt(0).toUpperCase() + palavra.slice(1))
+                .join(' ');
+        }
+        
+        // Função para formatar telefone
+        function formatarTelefone(valor) {
+            // Remove tudo que não é dígito
+            valor = valor.replace(/\D/g, '');
+            
+            // Limita a 11 dígitos (DDD + número)
+            if (valor.length > 11) {
+                valor = valor.substring(0, 11);
+            }
+            
+            // Formatar como (XX) XXXXX-XXXX ou (XX) XXXX-XXXX
+            if (valor.length <= 2) {
+                // Até 2 dígitos, apenas coloca os parênteses
+                return valor.length > 0 ? `(${valor}` : valor;
+            } else if (valor.length <= 6) {
+                // De 3 a 6 dígitos
+                return `(${valor.substring(0, 2)}) ${valor.substring(2)}`;
+            } else if (valor.length <= 10) {
+                // Telefone fixo: (XX) XXXX-XXXX
+                return `(${valor.substring(0, 2)}) ${valor.substring(2, 6)}-${valor.substring(6)}`;
+            } else {
+                // Celular: (XX) XXXXX-XXXX
+                return `(${valor.substring(0, 2)}) ${valor.substring(2, 7)}-${valor.substring(7)}`;
+            }
+        }
+    </script>
+</body>
+</html> 
