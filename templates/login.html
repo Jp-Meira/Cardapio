@@ -76,22 +76,6 @@
                 {% endif %}
             {% endwith %}
             
-            <div class="alert alert-info mb-3">
-                <strong>Credenciais de acesso:</strong><br>
-                - Email: admin@vortex.com<br>
-                - Senha: admin@2025
-            </div>
-            
-            <div class="alert alert-warning mb-3">
-                <strong>Importante!</strong>
-                <p class="mb-1">Se estiver tendo problemas para logar:</p>
-                <ul class="mb-0 ps-3">
-                    <li>Use o comando <code>python run.py</code> para iniciar o sistema corretamente</li>
-                    <li>Verifique se digitou corretamente as credenciais</li>
-                    <li>Certifique-se de que não há espaços extras no início ou fim</li>
-                </ul>
-            </div>
-            
             <form method="POST" action="{{ url_for('login', proximo=proximo) }}">
                 <div class="mb-3">
                     <label for="credencial" class="form-label">Email ou Telefone</label>
@@ -105,7 +89,6 @@
             </form>
             
             <div class="login-links">
-                <a href="{{ url_for('esqueci_senha') }}">Esqueci minha senha</a>
                 <div class="mt-3">
                     <a href="{{ url_for('index') }}" class="text-muted"><i class="bi bi-arrow-left"></i> Voltar para o catálogo</a>
                 </div>

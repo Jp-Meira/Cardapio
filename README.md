@@ -101,7 +101,7 @@ catalogo/
 ### Gerenciamento de Estoque
 - Adição de novos produtos
 - Edição de informações (nome, descrição, preço, etc.)
-- Controle de quantidade em estoque
+- Controle de quantidade em estoque (adição e remoção)
 - Remoção de produtos (bloqueada se estiver em pedido pendente)
 
 ### Processamento de Pedidos

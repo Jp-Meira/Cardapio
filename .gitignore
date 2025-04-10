@@ -40,6 +40,3 @@ static/images/*
 # Sistema operacional
 .DS_Store
 Thumbs.db
-
-# Dependencies
-requirements.txt

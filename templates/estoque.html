@@ -60,7 +60,7 @@
                                 <i class="bi bi-list-check me-1"></i> Pedidos
                             </a>
                         </li>
-                        {% if session['usuario_tipo'] == 'gerente' %}
+                        {% if session['usuario_tipo'] == 'gerente' or session['usuario_tipo'] == 'dev' %}
                         <li class="nav-item">
                             <a class="nav-link" href="{{ url_for('listar_usuarios') }}">
                                 <i class="bi bi-people me-1"></i> Usuários
@@ -124,7 +124,7 @@
                                 <th scope="col">Preço</th>
                                 <th scope="col">Estoque</th>
                                 <th scope="col">Última Atualização</th>
-                                <th scope="col">Adicionar Estoque</th>
+                                <th scope="col">Gerenciar Estoque</th>
                                 <th scope="col" class="actions-column">Ações</th>
                             </tr>
                         </thead>
@@ -377,9 +377,12 @@
                     <td>${dataFormatada}</td>
                     <td>
                         <div class="input-group">
-                            <input type="number" class="form-control form-control-sm" id="add-estoque-${produto.id}" min="1" value="1" style="width: 60px;">
                             <button class="btn btn-sm btn-success" onclick="adicionarEstoque('${produto.id}')">
-                                <i class="bi bi-plus-circle"></i> Adicionar
+                                <i class="bi bi-plus-circle"></i>
+                            </button>
+                            <input type="number" class="form-control form-control-sm" id="add-estoque-${produto.id}" min="1" value="1" style="width: 40px;">
+                            <button class="btn btn-sm btn-danger" onclick="removerEstoque('${produto.id}')">
+                                <i class="bi bi-dash-circle"></i>
                             </button>
                         </div>
                     </td>
@@ -480,9 +483,12 @@
                     <td>${dataFormatada}</td>
                     <td>
                         <div class="input-group">
-                            <input type="number" class="form-control form-control-sm" id="add-estoque-${produto.id}" min="1" value="1" style="width: 60px;">
                             <button class="btn btn-sm btn-success" onclick="adicionarEstoque('${produto.id}')">
-                                <i class="bi bi-plus-circle"></i> Adicionar
+                                <i class="bi bi-plus-circle"></i>
+                            </button>
+                            <input type="number" class="form-control form-control-sm" id="add-estoque-${produto.id}" min="1" value="1" style="width: 40px;">
+                            <button class="btn btn-sm btn-danger" onclick="removerEstoque('${produto.id}')">
+                                <i class="bi bi-dash-circle"></i>
                             </button>
                         </div>
                     </td>
@@ -747,6 +753,50 @@
                 }
                 
                 mostrarNotificacao('sucesso', `Adicionado ${quantidade} unidade(s) ao estoque!`);
+                
+                // Recarregar produtos para atualizar o estoque
+                await carregarProdutos();
+                
+            } catch (error) {
+                console.error('Erro:', error);
+                mostrarNotificacao('erro', error.message);
+            }
+        }
+
+        // Função para remover estoque
+        async function removerEstoque(produtoId) {
+            const quantidadeInput = document.getElementById(`add-estoque-${produtoId}`);
+            const quantidade = parseInt(quantidadeInput.value);
+            
+            if (isNaN(quantidade) || quantidade <= 0) {
+                mostrarNotificacao('erro', 'Quantidade inválida. Informe um número positivo.');
+                return;
+            }
+            
+            try {
+                const produto = produtos.find(p => p.id === produtoId);
+                if (!produto) {
+                    throw new Error('Produto não encontrado');
+                }
+                
+                if (produto.quantidade_estoque < quantidade) {
+                    throw new Error('Quantidade a remover não pode ser maior que o estoque disponível');
+                }
+                
+                const response = await fetch(`/api/produtos/${produtoId}/estoque`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ quantidade: -quantidade })
+                });
+                
+                if (!response.ok) {
+                    const erro = await response.json();
+                    throw new Error(erro.erro || 'Erro ao atualizar estoque');
+                }
+                
+                mostrarNotificacao('sucesso', `Removido ${quantidade} unidade(s) do estoque!`);
                 
                 // Recarregar produtos para atualizar o estoque
                 await carregarProdutos();

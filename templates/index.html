@@ -79,11 +79,28 @@
         /* Espaço para compensar a barra fixa */
         @media (max-width: 767px) {
             .search-cart-bar {
-                position: relative;
+                position: fixed;
                 width: 100%;
-                top: auto;
-                right: auto;
-                margin-top: 15px;
+                top: 0;
+                right: 0;
+                left: 0;
+                margin-top: 0;
+                background-color: rgba(255, 255, 255, 0.95);
+                border-radius: 0;
+                padding: 10px 15px;
+                box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                z-index: 1020;
+                transform: translateY(0);
+                transition: transform 0.3s ease;
+            }
+            
+            .search-cart-bar.fixed {
+                transform: translateY(0);
+            }
+            
+            /* Espaço adicional para produtos ficarem abaixo do cabeçalho e da barra de busca */
+            #produtos-container {
+                margin-top: 70px;
             }
         }
         /* Modal de finalização maior */
@@ -373,6 +390,50 @@
         </div>
     </div>
 
+    <!-- Modal de Visualização de Produto -->
+    <div class="modal fade" id="modalVisualizacaoProduto" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Detalhes do Produto</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-5 text-center mb-3">
+                            <img id="produto-detalhe-imagem" src="" alt="Imagem do produto" class="img-fluid rounded" style="max-height: 250px; object-fit: contain;">
+                        </div>
+                        <div class="col-md-7">
+                            <h4 id="produto-detalhe-nome" class="mb-3"></h4>
+                            <p id="produto-detalhe-descricao" class="text-muted mb-3"></p>
+                            <div class="d-flex justify-content-between mb-3">
+                                <h5 class="text-success fw-bold">R$ <span id="produto-detalhe-preco"></span></h5>
+                                <span class="badge bg-success" id="produto-detalhe-estoque"></span>
+                            </div>
+                            
+                            <div class="mt-4">
+                                <div class="row">
+                                    <div class="col">
+                                        <label for="produto-detalhe-quantidade" class="form-label">Quantidade</label>
+                                        <input type="number" class="form-control" id="produto-detalhe-quantidade" min="1" value="1">
+                                    </div>
+                                    <div class="col-auto d-flex align-items-end">
+                                        <button class="btn btn-primary" id="btn-adicionar-carrinho">
+                                            <i class="bi bi-cart-plus"></i> Adicionar ao Carrinho
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Toast de Notificação -->
     <div class="toast-container position-fixed bottom-0 end-0 p-3">
         <div id="toast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
@@ -397,6 +458,7 @@
         let modalQuantidade = null;
         let modalCarrinho = null;
         let modalFinalizacao = null;
+        let modalVisualizacaoProduto = null;
         
         let listaProdutos = null;
         let resumoPedido = null;
@@ -413,6 +475,21 @@
                     .replace(/[^\w\s]/gi, '');
         }
 
+        // Função para controlar a barra de busca e carrinho em mobile
+        function handleSearchCartBarScroll() {
+            if (window.innerWidth <= 767) {
+                const searchCartBar = document.querySelector('.search-cart-bar');
+                const navbar = document.querySelector('.navbar');
+                const navbarHeight = navbar.offsetHeight;
+                
+                // Posicionar a barra logo abaixo do navbar
+                searchCartBar.style.top = navbarHeight + 'px';
+                
+                // Ajustar o espaço para os produtos
+                document.getElementById('produtos-container').style.marginTop = (navbarHeight + searchCartBar.offsetHeight) + 'px';
+            }
+        }
+
         // Carregar produtos ao iniciar a página
         document.addEventListener('DOMContentLoaded', () => {
             console.log('DOM carregado, iniciando aplicação...');
@@ -427,6 +504,7 @@
                 modalQuantidade = new bootstrap.Modal(document.getElementById('modalQuantidade'));
                 modalCarrinho = new bootstrap.Modal(document.getElementById('carrinhoModal'));
                 modalFinalizacao = new bootstrap.Modal(document.getElementById('finalizacaoModal'));
+                modalVisualizacaoProduto = new bootstrap.Modal(document.getElementById('modalVisualizacaoProduto'));
                 
                 listaProdutos = document.getElementById('lista-produtos');
                 resumoPedido = document.getElementById('resumo-pedido');
@@ -439,6 +517,14 @@
                 if (toastElement) {
                     toast = new bootstrap.Toast(toastElement);
                 }
+                
+                // Configurar evento de adicionar ao carrinho a partir do modal de detalhes
+                document.getElementById('btn-adicionar-carrinho').addEventListener('click', function() {
+                    adicionarAoCarrinhoDoDetalhe();
+                });
+                
+                // Inicializar controle de scroll para a barra de busca em mobile
+                handleSearchCartBarScroll();
                 
                 console.log('Componentes Bootstrap inicializados com sucesso');
             } catch (error) {
@@ -721,7 +807,7 @@
                     
                     // HTML interno da coluna
                     coluna.innerHTML = `
-                        <div class="card h-100">
+                        <div class="card h-100" style="cursor: pointer;" onclick="visualizarProduto('${produto.id}')">
                             <img src="${produto.imagem_url || '/static/images/no-image.png'}" class="card-img-top produto-imagem" alt="${produto.nome}">
                             <div class="card-body">
                                 <h5 class="card-title">${produto.nome}</h5>
@@ -736,10 +822,10 @@
                                         </span>
                                     </div>
                                     <button class="btn btn-primary btn-sm" 
-                                        onclick="abrirModalQuantidade('${produto.id}', '${produto.nome.replace(/'/g, "\\'")}', ${produto.preco}, ${produto.quantidade_estoque})"
+                                        onclick="abrirModalQuantidade('${produto.id}', '${produto.nome.replace(/'/g, "\\'")}', ${produto.preco}, ${produto.quantidade_estoque}); event.stopPropagation();"
                                         ${!temEstoque ? 'disabled' : ''}>
                                         <i class="bi bi-cart-plus"></i> Adicionar
-                                </button>
+                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -1258,6 +1344,79 @@
             }
             
             console.log(`Contador do carrinho atualizado: ${carrinho.length} item(s)`);
+        }
+
+        function visualizarProduto(produtoId) {
+            const produto = produtos.find(p => p.id === produtoId);
+            if (!produto) {
+                console.error(`Produto com ID ${produtoId} não encontrado`);
+                return;
+            }
+            
+            // Preencher dados do produto no modal
+            document.getElementById('produto-detalhe-nome').textContent = produto.nome;
+            document.getElementById('produto-detalhe-descricao').textContent = produto.descricao;
+            document.getElementById('produto-detalhe-preco').textContent = produto.preco.toFixed(2).replace('.', ',');
+            
+            // Configurar imagem
+            const imagemElement = document.getElementById('produto-detalhe-imagem');
+            imagemElement.src = produto.imagem_url || '/static/images/no-image.png';
+            imagemElement.onerror = function() {
+                this.src = '/static/images/no-image.png';
+            };
+            
+            // Configurar status de estoque
+            const estoqueElement = document.getElementById('produto-detalhe-estoque');
+            const temEstoque = produto.quantidade_estoque > 0;
+            
+            if (temEstoque) {
+                estoqueElement.textContent = `${produto.quantidade_estoque} em estoque`;
+                estoqueElement.className = 'badge bg-success';
+                document.getElementById('produto-detalhe-quantidade').max = produto.quantidade_estoque;
+                document.getElementById('produto-detalhe-quantidade').value = 1;
+                document.getElementById('btn-adicionar-carrinho').disabled = false;
+            } else {
+                estoqueElement.textContent = 'Indisponível';
+                estoqueElement.className = 'badge bg-danger';
+                document.getElementById('produto-detalhe-quantidade').value = 0;
+                document.getElementById('btn-adicionar-carrinho').disabled = true;
+            }
+            
+            // Armazenar o ID do produto atual para usar na adição ao carrinho
+            document.getElementById('btn-adicionar-carrinho').dataset.produtoId = produtoId;
+            
+            // Exibir o modal
+            modalVisualizacaoProduto.show();
+        }
+        
+        function adicionarAoCarrinhoDoDetalhe() {
+            const produtoId = document.getElementById('btn-adicionar-carrinho').dataset.produtoId;
+            const quantidade = parseInt(document.getElementById('produto-detalhe-quantidade').value);
+            
+            if (!produtoId) {
+                console.error('ID do produto não encontrado');
+                return;
+            }
+            
+            const produto = produtos.find(p => p.id === produtoId);
+            if (!produto) {
+                console.error(`Produto com ID ${produtoId} não encontrado`);
+                return;
+            }
+            
+            if (isNaN(quantidade) || quantidade <= 0) {
+                mostrarNotificacao('erro', 'Por favor, informe uma quantidade válida.');
+                return;
+            }
+            
+            if (quantidade > produto.quantidade_estoque) {
+                mostrarNotificacao('erro', `Estoque insuficiente. Disponível: ${produto.quantidade_estoque}`);
+                return;
+            }
+            
+            adicionarAoCarrinho(produto, quantidade);
+            modalVisualizacaoProduto.hide();
+            mostrarNotificacao('sucesso', `${quantidade} unidade(s) de ${produto.nome} adicionada(s) ao carrinho.`);
         }
     </script>
 </body>
